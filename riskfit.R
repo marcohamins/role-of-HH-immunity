@@ -10,7 +10,7 @@ library(scales)
 library(plyr)
 library(lubridate)
 library(magrittr)
-library(tidymv)
+library(tidygam)
 library(glmmTMB)
 library(ggpubr)
 library(stringr)
@@ -484,217 +484,7 @@ print((p1 + p2+ p3)/( p4 + p5) + plot_layout(guides = "collect") + plot_annotati
 ggsave(filename="figure3.png",path = figFolder,
        width = 16, height = 8, device='png', dpi=700)
 
-####### figure 4 individual factors #######
-## pre titer vs prob
-quantLocs <- as.vector(quantile(2^(df$avg_pre),na.rm=T,probs = c(0,seq(.2, 1, by = 0.1))))
-p1 <- ggplot(df,aes(x=2^(avg_pre),y=1-exp(-365*(prediction_round/timeDiff)))) + theme_pubr(base_size = 25,legend = "right")
-p1 <- p1 + geom_smooth(method = "glm", method.args = list(family = "binomial"), formula = y ~ splines::ns(x, 3),col="black")
-p1 <- p1 + xlab("Avg. DENV pre titer (HAI)") + ylab("Annual P(infection)")
-p1 <- p1 + coord_cartesian(ylim=c(0, .15),xlim=c(9,2560))
-p1 <- p1 + scale_x_continuous(trans=pseudo_log_trans(2),breaks = c(10,80,640,2560),labels = c("<10","80","640","2560"))
-p1 <- p1 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot")
-
-## pre titer vs sympt
-quantLocs <- as.vector(quantile(2^(df$avg_pre),na.rm=T,probs = c(0,seq(.2, 1, by = 0.1))))
-p2 <- ggplot(df,aes(x=2^(avg_pre),y=1-exp(-365*(sxInf/timeDiff)))) + theme_pubr(base_size = 25,legend = "right")
-p2 <- p2 + geom_smooth(method = "glm", method.args = list(family = "binomial"), formula = y ~ splines::ns(x, 2),col="black")
-p2 <- p2 + xlab("Avg. DENV pre titer (HAI)") + ylab("Annual P(symptoms)")
-p2 <- p2 + coord_cartesian(ylim=c(0, .025),xlim=c(9,2560))
-p2 <- p2 + scale_x_continuous(trans=pseudo_log_trans(2),breaks = c(10,80,640,2560),labels = c("<10","80","640","2560"))
-p2 <- p2 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot")
-
-## pre titer vs sympt | infection
-quantLocs <- as.vector(quantile(2^(df$avg_pre),na.rm=T,probs = c(0,seq(.2, 1, by = 0.1))))
-p3 <- ggplot(df[df$prediction > .5,],aes(x=2^(avg_pre),y=sxInf)) + theme_pubr(base_size = 25,legend = "right")
-p3 <- p3 + geom_smooth(method = "glm", method.args = list(family = "binomial"), formula = y ~ splines::ns(x, 2),col="black")
-p3 <- p3 + xlab("Avg. DENV pre titer (HAI)") + ylab("P(symptoms  |  infection)")
-p3 <- p3 + coord_cartesian(ylim=c(0, .2),xlim=c(9,2560))
-p3 <- p3 + scale_x_continuous(trans=pseudo_log_trans(2),breaks = c(10,80,640,2560),labels = c("<10","80","640","2560"))
-p3 <- p3 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot")
-
-p <- (p1 + p2 + p3) + plot_layout(guides = "collect")  + plot_annotation(tag_levels = 'A')
-print(p)
-ggsave(filename="figure4.png",path = figFolder,
-       width = 18, height = 6, device='png', dpi=700)
-
-
-
-
-
-####### figure S2 figure 2 by serotype #######
-
-## hai pre v post 
-
-x <- c(0:5120)
-y <- 4*x
-dfline<- data.frame(x = x, y=y)
-
-df$trainInf_forplotting <- ifelse(df$trainInf ==0,ifelse(df$prediction_round,1,0),2)
-p1 <- ggplot(df) 
-p1 <- p1 + geom_smooth(dfline,mapping=aes(x=x,y=y),col="black",lwd=.65)
-p1 <- p1 + geom_jitter(data = df[df$trainInf_forplotting!=2,],aes(x=d1_pre,y=d1_post,fill=as.factor(trainInf_forplotting),col=as.factor(trainInf_forplotting)),pch=21,alpha=.5)
-p1 <- p1 + geom_jitter(data=df[df$trainInf_forplotting==2,],aes(x=d1_pre,y=d1_post,fill=as.factor(trainInf_forplotting)),pch=21)
-p1 <- p1 + theme_pubr(base_size = 32,legend = "top") + facet_wrap(~ageCatPreFollow,nrow=1)
-p1 <- p1 + scale_x_continuous(name = "DENV-1 HAI (pre interval)",trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
-p1 <- p1 + scale_y_continuous(name = "DENV-1 HAI (post interval)", trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
-p1 <- p1 + scale_fill_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
-p1 <- p1 + scale_color_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
-p1 <- p1 + guides(fill=guide_legend("Predicted Infection"),color="none")
-
-p2 <- ggplot(df) 
-p2 <- p2 + geom_smooth(dfline,mapping=aes(x=x,y=y),col="black",lwd=.65)
-p2 <- p2 + geom_jitter(data = df[df$trainInf_forplotting!=2,],aes(x=d2_pre,y=d2_post,fill=as.factor(trainInf_forplotting),col=as.factor(trainInf_forplotting)),pch=21,alpha=.5)
-p2 <- p2 + geom_jitter(data=df[df$trainInf_forplotting==2,],aes(x=d2_pre,y=d2_post,fill=as.factor(trainInf_forplotting)),pch=21)
-p2 <- p2 + theme_pubr(base_size = 32,legend = "top") + facet_wrap(~ageCatPreFollow,nrow=1)
-p2 <- p2 + scale_x_continuous(name = "DENV-2 HAI (pre interval)",trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
-p2 <- p2 + scale_y_continuous(name = "DENV-2 HAI (post interval)", trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
-p2 <- p2 + scale_fill_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
-p2 <- p2 + scale_color_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
-p2 <- p2 + guides(fill=guide_legend("Predicted Infection"),color="none")
-
-p3 <- ggplot(df) 
-p3 <- p3 + geom_smooth(dfline,mapping=aes(x=x,y=y),col="black",lwd=.65)
-p3 <- p3 + geom_jitter(data = df[df$trainInf_forplotting!=2,],aes(x=d3_pre,y=d3_post,fill=as.factor(trainInf_forplotting),col=as.factor(trainInf_forplotting)),pch=21,alpha=.5)
-p3 <- p3 + geom_jitter(data=df[df$trainInf_forplotting==2,],aes(x=d3_pre,y=d3_post,fill=as.factor(trainInf_forplotting)),pch=21)
-p3 <- p3 + theme_pubr(base_size = 32,legend = "top") + facet_wrap(~ageCatPreFollow,nrow=1)
-p3 <- p3 + scale_x_continuous(name = "DENV-3 HAI (pre interval)",trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
-p3 <- p3 + scale_y_continuous(name = "DENV-3 HAI (post interval)", trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
-p3 <- p3 + scale_fill_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
-p3 <- p3 + scale_color_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
-p3 <- p3 + guides(fill=guide_legend("Predicted Infection"),color="none")
-
-
-p4 <- ggplot(df) 
-p4 <- p4 + geom_smooth(dfline,mapping=aes(x=x,y=y),col="black",lwd=.65)
-p4 <- p4 + geom_jitter(data = df[df$trainInf_forplotting!=2,],aes(x=d4_pre,y=d4_post,fill=as.factor(trainInf_forplotting),col=as.factor(trainInf_forplotting)),pch=21,alpha=.5)
-p4 <- p4 + geom_jitter(data=df[df$trainInf_forplotting==2,],aes(x=d4_pre,y=d4_post,fill=as.factor(trainInf_forplotting)),pch=21)
-p4 <- p4 + theme_pubr(base_size = 32,legend = "top") + facet_wrap(~ageCatPreFollow,nrow=1)
-p4 <- p4 + scale_x_continuous(name = "DENV-4 HAI (pre interval)",trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
-p4 <- p4 + scale_y_continuous(name = "DENV-4 HAI (post interval)", trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
-p4 <- p4 + scale_fill_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
-p4 <- p4 + scale_color_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
-p4 <- p4 + guides(fill=guide_legend("Predicted Infection"),color="none")
-
-
-p5 <- ggplot(df) 
-p5 <- p5 + geom_smooth(dfline,mapping=aes(x=x,y=y),col="black",lwd=.65)
-p5 <- p5 + geom_jitter(data = df[df$trainInf_forplotting!=2,],aes(x=je_pre,y=je_post,fill=as.factor(trainInf_forplotting),col=as.factor(trainInf_forplotting)),pch=21,alpha=.5)
-p5 <- p5 + geom_jitter(data=df[df$trainInf_forplotting==2,],aes(x=je_pre,y=je_post,fill=as.factor(trainInf_forplotting)),pch=21)
-p5 <- p5 + theme_pubr(base_size = 32,legend = "top") + facet_wrap(~ageCatPreFollow,nrow=1)
-p5 <- p5 + scale_x_continuous(name = "JE HAI (pre interval)",trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
-p5 <- p5 + scale_y_continuous(name = "JE HAI (post interval)", trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
-p5 <- p5 + scale_fill_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
-p5 <- p5 + scale_color_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
-p5 <- p5 + guides(fill=guide_legend("Predicted Infection"),color="none")
-
-print(p1 + p2 + p3 + p4 + p5 + plot_layout(nrow = 5,guides = "collect") & theme(legend.position = 'right',
-                                                                                legend.direction = 'vertical'))
-
-ggsave(filename="figureS1.png",path = figFolder,
-       width = 29, height = 30, device='png', dpi=700)
-
-
-####### figure S3 individuals with multiple infections #####
-
-df$pos <- 1:length(df$subjectNoAnon)
-df$cumsumInf <- NA
-for(i in 1:length(unique(df$subjectNoAnon))){
-  hold <- df[df$subjectNoAnon == unique(df$subjectNoAnon)[i],]
-  hold$cumInf <- cumsum(hold$prediction_round[order(hold$followUp)])[match(hold$followUp,hold$followUp[order(hold$followUp)])]
-  df[match(hold$pos,df$pos),]$cumsumInf <- hold$cumInf 
-}
-
-# plot how this varies by age
-p1 <- ggplot(df[(df$prediction_round),],aes(x=ageAtFollow,fill=(as.factor(cumsumInf)))) 
-p1 <- p1 + geom_bar() + scale_x_binned(breaks = seq(5,90,5),limits=c(0,90),name = "Age (years)",
-                                       labels = c("","10","","20","","30","","40","","50","","60","","70","","80","","90")) 
-p1 <- p1 + theme_pubr(base_size = 24,legend = "top")
-p1 <- p1 + labs(fill="Subj. inf. #")
-p1 <- p1 + ylab("Number of intervals")
-p1 <- p1 + scale_fill_viridis_d(labels = c("TRUE" = "Primary", "FALSE" = "Secondary"))
-p1 <- p1 + guides(fill=guide_legend(reverse=TRUE))
-
-# plot how probability varies by age
-quantLocs <- as.vector(quantile((df$ageAtFollow),na.rm=T,probs = c(0,seq(.2, 1, by = 0.1))))
-p2 <- ggplot(df[df$cumsumInf>0,],aes(x=(ageAtFollow),y=as.numeric(cumsumInf>1))) + theme_pubr(base_size = 24,legend = "top")
-p2 <- p2 + geom_smooth(method = "glm", method.args = list(family = "binomial"), formula = y ~ splines::ns(x, 3),col="black")
-p2 <- p2 + xlab("Age (years)") + ylab("P(2nd/3rd infection | infection)")#ylab("Annual probability of infection")
-#p2 <- p2 + coord_cartesian(ylim=c(0, .2),xlim=c(9,2560))
-#p2 <- p2 + scale_x_continuous(breaks=c(0,10,40,160,640,2560),trans = pseudo_log_trans(2))
-p2 <- p2 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot")
-
-
-p <- p1 + p2 + plot_annotation(tag_levels = 'A')
-print(p)
-ggsave(filename="figureS2_mult_infs.png",path = figFolder,
-       width = 14, height = 10, device='png', dpi=700)
-
-####### figure S4 sex differences -- foi #######
-
-ageVec <- c(1:60)
-dfm <- df[df$gender == "M",]
-dff <- df[df$gender == "F",]
-pvec17male <- df2prop(dfm,2017,ageVec,40)
-pvec17female <- df2prop(dff,2017,ageVec,40)
-
-# run constant FOI model
-# 2017
-fit=glm(cbind(pvec17male$inf,pvec17male$n-pvec17male$inf)~offset(log(pvec17male$a)),family=binomial(link="cloglog"), data=pvec17male)
-phi=exp(coef(fit))
-pvec17male$fit = 1-exp(-phi*pvec17male$a)
-pvec17male$foi = exp(fit$coef)
-pvec17male$gender <- "M"
-
-fit=glm(cbind(pvec17female$inf,pvec17female$n-pvec17female$inf)~offset(log(pvec17female$a)),family=binomial(link="cloglog"), data=pvec17female)
-phi=exp(coef(fit))
-pvec17female$fit = 1-exp(-phi*pvec17female$a)
-pvec17female$foi = exp(fit$coef)
-pvec17female$gender <- "F"
-
-pvec17 <- rbind(pvec17female,pvec17male)
-
-# make actual plot
-quantLocs <- as.vector(quantile(df[(df$sampDate_pre_year< 2018)&(df$ageAtEnr>1),]$ageAtEnr,na.rm=T,probs = seq(0, 1, by = 0.05)))
-pd = position_dodge(1)
-p3 <- ggplot()
-p3 <- p3 + geom_line(pvec17,mapping=aes(x=a,y=fit,col=gender),size=1.2)
-p3 <- p3 + xlab("Age (years)") + ylab("Seroprevalence")
-p3 <- p3 + coord_cartesian(xlim = c(0,60),ylim=c(0,1))
-p3 <- p3 + theme_pubr(base_size = 18,legend="right") 
-p3 <- p3 + stat_summary_bin(df[(df$sampDate_pre_year< 2018)&(df$ageAtEnr>1),],mapping=aes(x=ageAtEnr,y=as.numeric(!((d1_pre<40)&(d2_pre<40)&(d3_pre<40)&(d4_pre<40))),col= gender),geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot",position=pd)
-p3 <- p3 + labs("C") +  guides(col=guide_legend("Sex")) 
-print(p3)
-
-ggsave(filename="figureS3_age_sex_seroprevalence.png",path = figFolder,
-       width = 10, height = 6, device='png', dpi=700)
-
-####### figure S5 sex differences #######
-quantLocs <- as.vector(quantile((df$ageAtPreFollow),na.rm=T,probs = seq(0, 1, by = 0.1)))
-pd = position_dodge(3)
-p1 <- ggplot(df,aes(x=(ageAtPreFollow),y=infection,col=gender,fill=gender)) + theme_pubr(base_size = 25,legend = "right")
-p1 <- p1 + geom_smooth(method = "loess")
-p1 <- p1 + xlab("Age (years)") + ylab("Annual P(infection)")
-p1 <- p1 + coord_cartesian(ylim=c(0, .2))
-p1 <- p1 + labs(col = "Sex",fill = "Sex")
-p1 <- p1 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot",position = pd)
-p1 <- p1 + labs("A")
-
-quantLocs <- as.vector(quantile((df$ageAtPreFollow),na.rm=T,probs = seq(0, 1, by = 0.1)))
-pd = position_dodge(3)
-p2 <- ggplot(df,aes(x=(ageAtPreFollow),y=avg_pre,col=gender,fill=gender)) + theme_pubr(base_size = 25,legend = "right")
-p2 <- p2 + geom_smooth(data=df[df$ageAtPreFollow > 0,],mapping=aes(x=(ageAtPreFollow),y=avg_pre,col=gender,fill=gender),
-                       method = "loess")
-p2 <- p2 + ylab("Avg. DENV pre titer (HAI)") + xlab("Age (years)")
-p2 <- p2 + labs(col = "Sex",fill = "Sex")
-p2 <- p2 + scale_y_continuous(breaks=c(0,10,20,40,80,160,320,640,1280,2560,5120),trans = pseudo_log_trans(2))
-p2 <- p2 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot",position = pd)
-p2 <- p2  + labs("B")
-
-print(p1 + p2 + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A'))
-
-ggsave(filename="figureS5.png",path = figFolder,
-       width = 16, height = 6, device='png', dpi=700)
-# Household Composition Analysis #####
+####### figure 4ab Household Composition Analysis #####
 
 
 if(max(df$avg_pre,na.rm = T)>100){
@@ -1031,10 +821,6 @@ p2 <- ggplot(data=A[A$analysis == 'Multivariate w/ r.e.s',], aes(x=IV, y=ES, ymi
 print("all")
 print(A)
 
-print(p2)
-ggsave(filename="figureSupp_all.png",path = figFolder,
-       width = 16, height = 6, device='png', dpi=700)
-
 # males females
 A1$analysis <- "Univariate"
 A1_re$analysis <- "Univariate w/ r.e.s"
@@ -1063,7 +849,7 @@ p1 <- ggplot(data=A[A$analysis == 'Multivariate w/ r.e.s',], aes(x=IV, y=ES, ymi
 print("males and females")
 print(A)
 
-###### Household HAI and Attack Rate Analysis #####
+####### figure 4cd Household HAI and Attack Rate Analysis #####
 df$houseFUprePosPropCat <- ifelse(df$houseFUprePosProp==0,0,
                                   ifelse((df$houseFUprePosProp>0)&(df$houseFUprePosProp<.2),1,
                                          ifelse((df$houseFUprePosProp>=.2)&(df$houseFUprePosProp<.4),2,
@@ -1102,18 +888,6 @@ model2_mult <- glmmTMB(prediction_round ~ houseNoPreTiterMeanCat + sampDate_post
                        data=df,
                        family = binomial(link="logit"))
 
-model3 <- glmmTMB(prediction_round ~ avg_pre_cat,
-                  data=df,
-                  family = binomial(link="logit"))
-
-model3_re <- glmmTMB(prediction_round ~ avg_pre_cat + (1|houseAnon),
-                     data=df,
-                     family = binomial(link="logit"))
-
-model3_mult <- glmmTMB(prediction_round ~ sampDate_post_month + sampDate_post_year + avg_pre_cat + (1|houseAnon),
-                       data=df,
-                       family = binomial(link="logit"))
-
 # get results
 varlist <- c("houseFUprePosPropCat1", "houseFUprePosPropCat2")
 modelouts1 <- exp(confint(model1,parm = varlist))
@@ -1128,13 +902,6 @@ modelouts2 <- exp(confint(model2,parm = varlist))
 modelouts2_re <- exp(confint(model2_re,parm = varlist))
 
 modelouts2_mult <- exp(confint(model2_mult,parm = varlist))
-
-varlist <- c("avg_pre_cat<20", "avg_pre_cat40-80","avg_pre_cat80-160","avg_pre_cat160+")
-modelouts3 <- exp(confint(model3,parm = varlist))
-
-modelouts3_re <- exp(confint(model3_re,parm = varlist))
-
-modelouts3_mult <- exp(confint(model3_mult,parm = varlist))
 
 DV<-c("houseFUprePosPropCat1", "houseFUprePosPropCat2") # Heading for Facet Wrap
 IV<-as.factor(c("0-0.2",
@@ -1229,61 +996,6 @@ A2 <- rbind(A2,A2_multi)
 A2$analysis <- factor(A2$analysis, levels=c('Univariate', 'Univariate w/ r.e.s', 'Multivariate w/ r.e.s'))
 A2$IV <- factor(A2$IV, levels=c("<40","40-66",">66"))
 
-DV<-c("avg_pre_cat<20", "avg_pre_cat40-80","avg_pre_cat80-160","avg_pre_cat160+") # Heading for Facet Wrap
-IV<-as.factor(c("<20",
-                "40-80",
-                "80-160",
-                ">160")) # Independent variable names
-ES<-as.numeric(modelouts3[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
-LCI<-as.numeric(modelouts3[,1]) # Lower 95% confidence interval
-UCI<-as.numeric(modelouts3[,2]) # Upper 95% confidence interval
-PCHval <- rep(16,length(IV))
-
-A3<-data.frame(DV,IV,ES,LCI,UCI,PCHval)
-hold<-data.frame("avg_pre_cat20-40",as.factor("20-40"),1,NA,NA,21)
-names(hold)<-c("DV","IV","ES","LCI","UCI","PCHval")
-A3 <- rbind(A3,hold)
-A3$analysis <- "Univariate"
-
-DV<-c("avg_pre_cat<20", "avg_pre_cat40-80","avg_pre_cat80-160","avg_pre_cat160+") # Heading for Facet Wrap
-IV<-as.factor(c("<20",
-                "40-80",
-                "80-160",
-                ">160")) # Independent variable names
-ES<-as.numeric(modelouts3_re[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
-LCI<-as.numeric(modelouts3_re[,1]) # Lower 95% confidence interval
-UCI<-as.numeric(modelouts3_re[,2]) # Upper 95% confidence interval
-PCHval <- rep(16,length(IV))
-
-A3_re<-data.frame(DV,IV,ES,LCI,UCI,PCHval)
-hold<-data.frame("avg_pre_cat20-40",as.factor("20-40"),1,NA,NA,21)
-names(hold)<-c("DV","IV","ES","LCI","UCI","PCHval")
-A3_re <- rbind(A3_re,hold)
-A3_re$analysis <- "Univariate w/ r.e.s"
-
-
-DV<-c("avg_pre_cat<20", "avg_pre_cat40-80","avg_pre_cat80-160","avg_pre_cat160+") # Heading for Facet Wrap
-IV<-as.factor(c("<20",
-                "40-80",
-                "80-160",
-                ">160")) # Independent variable names
-ES<-as.numeric(modelouts3_mult[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
-LCI<-as.numeric(modelouts3_mult[,1]) # Lower 95% confidence interval
-UCI<-as.numeric(modelouts3_mult[,2]) # Upper 95% confidence interval
-PCHval <- rep(16,length(IV))
-
-A3_multi<-data.frame(DV,IV,ES,LCI,UCI,PCHval)
-hold<-data.frame("avg_pre_cat20-40",as.factor("20-40"),1,NA,NA,21)
-names(hold)<-c("DV","IV","ES","LCI","UCI","PCHval")
-A3_multi <- rbind(A3_multi,hold)
-A3_multi$analysis <- "Multivariate w/ r.e.s"
-
-A3 <- rbind(A3_re,A3)
-A3 <- rbind(A3,A3_multi)
-A3$analysis <- factor(A3$analysis, levels=c('Univariate', 'Univariate w/ r.e.s', 'Multivariate w/ r.e.s'))
-A3$IV <- factor(A3$IV, levels=c("<20","20-40","40-80","80-160",">160"))
-
-
 pd = position_dodge(.5)
 p3 <- ggplot(data=A1[A1$analysis == 'Multivariate w/ r.e.s',], aes(x=IV, y=ES, ymin=LCI, ymax=UCI,group=analysis))+
   geom_pointrange(position = pd)+ 
@@ -1296,10 +1008,6 @@ p3 <- ggplot(data=A1[A1$analysis == 'Multivariate w/ r.e.s',], aes(x=IV, y=ES, y
   ylab("OR (95% CI)") + 
   scale_y_continuous(breaks = c(0,.5,1,1.5,2))+ 
   theme_pubr(base_size = 25,legend = "right")
-
-print(p3)
-ggsave(filename="household_attack_analysis.png",path = figFolder,
-       width = 16, height = 10, device='png', dpi=700)
 
 print("HH AR")
 print(A1)
@@ -1318,18 +1026,253 @@ p4 <- ggplot(data=A2[A2$analysis == 'Multivariate w/ r.e.s',], aes(x=IV, y=ES, y
   scale_y_continuous(breaks = c(0,.5,1,1.5,2))+ 
   theme_pubr(base_size = 25,legend = "right")
 
-print(p4)
-ggsave(filename="household_hi_analysis.png",path = figFolder,
-       width = 16, height = 10, device='png', dpi=700)
-
 print("HH HI")
 print(A2)
 
-print(p2 + p1 + p3 + p4 + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A'))
-ggsave(filename="figure_5_allHH.png",path = figFolder,
+print( p2 + p1 + p3 + p4 +plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A'))
+ggsave(filename="figure_4_allHH.png",path = figFolder,
        width = 20, height = 14, device='png', dpi=700)
+####### figure 5 individual factors #######
+## pre titer vs prob
+quantLocs <- as.vector(quantile(2^(df$avg_pre),na.rm=T,probs = c(0,seq(.2, 1, by = 0.1))))
+p1 <- ggplot(df,aes(x=2^(avg_pre),y=1-exp(-365*(prediction_round/timeDiff)))) + theme_pubr(base_size = 25,legend = "right")
+p1 <- p1 + geom_smooth(method = "glm", method.args = list(family = "binomial"), formula = y ~ splines::ns(x, 3),col="black")
+p1 <- p1 + xlab("Avg. DENV pre titer (HAI)") + ylab("Annual P(infection)")
+p1 <- p1 + coord_cartesian(ylim=c(0, .15),xlim=c(9,2560))
+p1 <- p1 + scale_x_continuous(trans=pseudo_log_trans(2),breaks = c(10,80,640,2560),labels = c("<10","80","640","2560"))
+p1 <- p1 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot")
 
-# Household Composition Analysis sensitivity analyses (80% of household sampled) ######
+## pre titer vs sympt
+quantLocs <- as.vector(quantile(2^(df$avg_pre),na.rm=T,probs = c(0,seq(.2, 1, by = 0.1))))
+p2 <- ggplot(df,aes(x=2^(avg_pre),y=1-exp(-365*(sxInf/timeDiff)))) + theme_pubr(base_size = 25,legend = "right")
+p2 <- p2 + geom_smooth(method = "glm", method.args = list(family = "binomial"), formula = y ~ splines::ns(x, 2),col="black")
+p2 <- p2 + xlab("Avg. DENV pre titer (HAI)") + ylab("Annual P(symptoms)")
+p2 <- p2 + coord_cartesian(ylim=c(0, .025),xlim=c(9,2560))
+p2 <- p2 + scale_x_continuous(trans=pseudo_log_trans(2),breaks = c(10,80,640,2560),labels = c("<10","80","640","2560"))
+p2 <- p2 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot")
+
+## pre titer vs sympt | infection
+quantLocs <- as.vector(quantile(2^(df$avg_pre),na.rm=T,probs = c(0,seq(.2, 1, by = 0.1))))
+p3 <- ggplot(df[df$prediction > .5,],aes(x=2^(avg_pre),y=sxInf)) + theme_pubr(base_size = 25,legend = "right")
+p3 <- p3 + geom_smooth(method = "glm", method.args = list(family = "binomial"), formula = y ~ splines::ns(x, 2),col="black")
+p3 <- p3 + xlab("Avg. DENV pre titer (HAI)") + ylab("Annual P(sympt.  |  inf.)")
+p3 <- p3 + coord_cartesian(ylim=c(0, .2),xlim=c(9,2560))
+p3 <- p3 + scale_x_continuous(trans=pseudo_log_trans(2),breaks = c(10,80,640,2560),labels = c("<10","80","640","2560"))
+p3 <- p3 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot")
+
+p <- (p1 + p2 + p3) + plot_layout(guides = "collect")  + plot_annotation(tag_levels = 'A')
+print(p)
+ggsave(filename="figure5.png",path = figFolder,
+       width = 18, height = 6, device='png', dpi=700)
+
+####### figure S2 sex differences -- foi #######
+
+ageVec <- c(1:60)
+dfm <- df[df$gender == "M",]
+dff <- df[df$gender == "F",]
+pvec17male <- df2prop(dfm,2017,ageVec,20)
+pvec17female <- df2prop(dff,2017,ageVec,20)
+
+# run constant FOI model
+# 2017
+fit=glm(cbind(pvec17male$inf,pvec17male$n-pvec17male$inf)~offset(log(pvec17male$a)),family=binomial(link="cloglog"), data=pvec17male)
+phi=exp(coef(fit))
+pvec17male$fit = 1-exp(-phi*pvec17male$a)
+pvec17male$foi = exp(fit$coef)
+pvec17male$gender <- "M"
+
+fit=glm(cbind(pvec17female$inf,pvec17female$n-pvec17female$inf)~offset(log(pvec17female$a)),family=binomial(link="cloglog"), data=pvec17female)
+phi=exp(coef(fit))
+pvec17female$fit = 1-exp(-phi*pvec17female$a)
+pvec17female$foi = exp(fit$coef)
+pvec17female$gender <- "F"
+
+pvec17 <- rbind(pvec17female,pvec17male)
+
+# make actual plot
+quantLocs <- as.vector(quantile(df[(df$sampDate_pre_year< 2018)&(df$ageAtEnr>1),]$ageAtEnr,na.rm=T,probs = seq(0, 1, by = 0.05)))
+pd = position_dodge(1)
+p3 <- ggplot()
+p3 <- p3 + geom_line(pvec17,mapping=aes(x=a,y=fit,col=gender),size=1.2)
+p3 <- p3 + xlab("Age (years)") + ylab("Seroprevalence")
+p3 <- p3 + coord_cartesian(xlim = c(0,60),ylim=c(0,1))
+p3 <- p3 + theme_pubr(base_size = 18,legend="right") 
+p3 <- p3 + stat_summary_bin(df[(df$sampDate_pre_year< 2018)&(df$ageAtEnr>1),],mapping=aes(x=ageAtEnr,y=as.numeric(!((d1_pre<40)&(d2_pre<40)&(d3_pre<40)&(d4_pre<40))),col= gender),geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot",position=pd)
+p3 <- p3 + labs("C") +  guides(col=guide_legend("Sex")) 
+print(p3)
+
+ggsave(filename="figureS2.png",path = figFolder,
+       width = 10, height = 6, device='png', dpi=700)
+
+####### figure S3 create confusion matrix for training data #####
+
+confusion_mat_plot <- function(pred_val,true_val,figure_name,figure_folder,title_str,subtitle_str){
+  tableval <- data.frame(confusionMatrix(as.factor(pred_val),true_val)$table)
+  
+  # create table for plotting with new labels
+  plotTable <- tableval %>%
+    mutate(goodbad = ifelse(tableval$Prediction == tableval$Reference, "good", "bad")) %>%
+    group_by(Reference) %>%
+    dplyr::mutate(prop = Freq/sum(Freq))
+  
+  # fill alpha relative to sensitivity/specificity by proportional outcomes within reference groups (see dplyr code above as well as original confusion matrix for comparison)
+  p <- ggplot(data = plotTable, mapping = aes(x = Reference, y = Prediction, fill = goodbad, alpha = prop)) +
+    geom_tile() +
+    geom_text(aes(label = Freq), vjust = .5, fontface  = "bold", alpha = 1) +
+    scale_fill_manual(values = c(good = "green", bad = "red")) +
+    theme_bw() +
+    ggtitle(title_str,subtitle = subtitle_str) +
+    xlim(rev(levels(tableval$Reference)))
+  print(p)
+  ggsave(filename=figure_name,path = figure_folder, width = 6, height = 4, device='png', dpi=700)
+  
+}
+confusion_mat_plot(as.factor(round(df[df$training==1,]$prediction)==1),as.factor(df[df$training==1,]$prediction_round==TRUE),paste0("S3.png"),figFolder,"XGboost: Confusion matrix for training data","")
+
+
+####### figure S4 create distributiion of prediction plot #####
+p <- ggplot(data = df,aes(x=prediction)) + geom_histogram(binwidth = .025)
+p <- p + scale_x_continuous("Model prediction")
+p <- p + scale_y_continuous("Intervals")
+p <- p + theme_pubr()
+print(p)
+ggsave(filename="S4.png",path = figFolder, width = 6, height = 4, device='png', dpi=700)
+
+####### figure S5 figure 2 by serotype #######
+
+## hai pre v post 
+
+x <- c(0:5120)
+y <- 4*x
+dfline<- data.frame(x = x, y=y)
+
+df$trainInf_forplotting <- ifelse(df$trainInf ==0,ifelse(df$prediction_round,1,0),2)
+p1 <- ggplot(df) 
+p1 <- p1 + geom_smooth(dfline,mapping=aes(x=x,y=y),col="black",lwd=.65)
+p1 <- p1 + geom_jitter(data = df[df$trainInf_forplotting!=2,],aes(x=d1_pre,y=d1_post,fill=as.factor(trainInf_forplotting),col=as.factor(trainInf_forplotting)),pch=21,alpha=.5)
+p1 <- p1 + geom_jitter(data=df[df$trainInf_forplotting==2,],aes(x=d1_pre,y=d1_post,fill=as.factor(trainInf_forplotting)),pch=21)
+p1 <- p1 + theme_pubr(base_size = 32,legend = "top") + facet_wrap(~ageCatPreFollow,nrow=1)
+p1 <- p1 + scale_x_continuous(name = "DENV-1 HAI (pre interval)",trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
+p1 <- p1 + scale_y_continuous(name = "DENV-1 HAI (post interval)", trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
+p1 <- p1 + scale_fill_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
+p1 <- p1 + scale_color_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
+p1 <- p1 + guides(fill=guide_legend("Predicted Infection"),color="none")
+
+p2 <- ggplot(df) 
+p2 <- p2 + geom_smooth(dfline,mapping=aes(x=x,y=y),col="black",lwd=.65)
+p2 <- p2 + geom_jitter(data = df[df$trainInf_forplotting!=2,],aes(x=d2_pre,y=d2_post,fill=as.factor(trainInf_forplotting),col=as.factor(trainInf_forplotting)),pch=21,alpha=.5)
+p2 <- p2 + geom_jitter(data=df[df$trainInf_forplotting==2,],aes(x=d2_pre,y=d2_post,fill=as.factor(trainInf_forplotting)),pch=21)
+p2 <- p2 + theme_pubr(base_size = 32,legend = "top") + facet_wrap(~ageCatPreFollow,nrow=1)
+p2 <- p2 + scale_x_continuous(name = "DENV-2 HAI (pre interval)",trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
+p2 <- p2 + scale_y_continuous(name = "DENV-2 HAI (post interval)", trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
+p2 <- p2 + scale_fill_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
+p2 <- p2 + scale_color_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
+p2 <- p2 + guides(fill=guide_legend("Predicted Infection"),color="none")
+
+p3 <- ggplot(df) 
+p3 <- p3 + geom_smooth(dfline,mapping=aes(x=x,y=y),col="black",lwd=.65)
+p3 <- p3 + geom_jitter(data = df[df$trainInf_forplotting!=2,],aes(x=d3_pre,y=d3_post,fill=as.factor(trainInf_forplotting),col=as.factor(trainInf_forplotting)),pch=21,alpha=.5)
+p3 <- p3 + geom_jitter(data=df[df$trainInf_forplotting==2,],aes(x=d3_pre,y=d3_post,fill=as.factor(trainInf_forplotting)),pch=21)
+p3 <- p3 + theme_pubr(base_size = 32,legend = "top") + facet_wrap(~ageCatPreFollow,nrow=1)
+p3 <- p3 + scale_x_continuous(name = "DENV-3 HAI (pre interval)",trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
+p3 <- p3 + scale_y_continuous(name = "DENV-3 HAI (post interval)", trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
+p3 <- p3 + scale_fill_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
+p3 <- p3 + scale_color_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
+p3 <- p3 + guides(fill=guide_legend("Predicted Infection"),color="none")
+
+
+p4 <- ggplot(df) 
+p4 <- p4 + geom_smooth(dfline,mapping=aes(x=x,y=y),col="black",lwd=.65)
+p4 <- p4 + geom_jitter(data = df[df$trainInf_forplotting!=2,],aes(x=d4_pre,y=d4_post,fill=as.factor(trainInf_forplotting),col=as.factor(trainInf_forplotting)),pch=21,alpha=.5)
+p4 <- p4 + geom_jitter(data=df[df$trainInf_forplotting==2,],aes(x=d4_pre,y=d4_post,fill=as.factor(trainInf_forplotting)),pch=21)
+p4 <- p4 + theme_pubr(base_size = 32,legend = "top") + facet_wrap(~ageCatPreFollow,nrow=1)
+p4 <- p4 + scale_x_continuous(name = "DENV-4 HAI (pre interval)",trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
+p4 <- p4 + scale_y_continuous(name = "DENV-4 HAI (post interval)", trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
+p4 <- p4 + scale_fill_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
+p4 <- p4 + scale_color_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
+p4 <- p4 + guides(fill=guide_legend("Predicted Infection"),color="none")
+
+
+p5 <- ggplot(df) 
+p5 <- p5 + geom_smooth(dfline,mapping=aes(x=x,y=y),col="black",lwd=.65)
+p5 <- p5 + geom_jitter(data = df[df$trainInf_forplotting!=2,],aes(x=je_pre,y=je_post,fill=as.factor(trainInf_forplotting),col=as.factor(trainInf_forplotting)),pch=21,alpha=.5)
+p5 <- p5 + geom_jitter(data=df[df$trainInf_forplotting==2,],aes(x=je_pre,y=je_post,fill=as.factor(trainInf_forplotting)),pch=21)
+p5 <- p5 + theme_pubr(base_size = 32,legend = "top") + facet_wrap(~ageCatPreFollow,nrow=1)
+p5 <- p5 + scale_x_continuous(name = "JE HAI (pre interval)",trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
+p5 <- p5 + scale_y_continuous(name = "JE HAI (post interval)", trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),labels = c("<10","80","640","5120"),limits=c(5,5500))
+p5 <- p5 + scale_fill_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
+p5 <- p5 + scale_color_manual(labels = c("1" = "+", "0" = "-","2"="Lab. conf."),values =c("#00AFBB", "#E7B800", "#FC4E07"))
+p5 <- p5 + guides(fill=guide_legend("Predicted Infection"),color="none")
+
+print(p1 + p2 + p3 + p4 + p5 + plot_layout(nrow = 5,guides = "collect") & theme(legend.position = 'right',
+                                                                                legend.direction = 'vertical'))
+
+ggsave(filename="figureS5.png",path = figFolder,
+       width = 29, height = 30, device='png', dpi=700)
+
+
+####### figure S6 individuals with multiple infections #####
+
+df$pos <- 1:length(df$subjectNoAnon)
+df$cumsumInf <- NA
+for(i in 1:length(unique(df$subjectNoAnon))){
+  hold <- df[df$subjectNoAnon == unique(df$subjectNoAnon)[i],]
+  hold$cumInf <- cumsum(hold$prediction_round[order(hold$followUp)])[match(hold$followUp,hold$followUp[order(hold$followUp)])]
+  df[match(hold$pos,df$pos),]$cumsumInf <- hold$cumInf 
+}
+
+# plot how this varies by age
+p1 <- ggplot(df[(df$prediction_round),],aes(x=ageAtFollow,fill=(as.factor(cumsumInf)))) 
+p1 <- p1 + geom_bar() + scale_x_binned(breaks = seq(5,90,5),limits=c(0,90),name = "Age (years)",
+                                       labels = c("","10","","20","","30","","40","","50","","60","","70","","80","","90")) 
+p1 <- p1 + theme_pubr(base_size = 24,legend = "top")
+p1 <- p1 + labs(fill="Subj. inf. #")
+p1 <- p1 + ylab("Number of intervals")
+p1 <- p1 + scale_fill_viridis_d(labels = c("TRUE" = "Primary", "FALSE" = "Secondary"))
+p1 <- p1 + guides(fill=guide_legend(reverse=TRUE))
+
+# plot how probability varies by age
+quantLocs <- as.vector(quantile((df$ageAtFollow),na.rm=T,probs = c(0,seq(.2, 1, by = 0.1))))
+p2 <- ggplot(df[df$cumsumInf>0,],aes(x=(ageAtFollow),y=as.numeric(cumsumInf>1))) + theme_pubr(base_size = 24,legend = "top")
+p2 <- p2 + geom_smooth(method = "glm", method.args = list(family = "binomial"), formula = y ~ splines::ns(x, 3),col="black")
+p2 <- p2 + xlab("Age (years)") + ylab("P(2nd/3rd infection | infection)")#ylab("Annual probability of infection")
+#p2 <- p2 + coord_cartesian(ylim=c(0, .2),xlim=c(9,2560))
+#p2 <- p2 + scale_x_continuous(breaks=c(0,10,40,160,640,2560),trans = pseudo_log_trans(2))
+p2 <- p2 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot")
+
+
+p <- p1 + p2 + plot_annotation(tag_levels = 'A')
+print(p)
+ggsave(filename="figureS6.png",path = figFolder,
+       width = 14, height = 10, device='png', dpi=700)
+
+####### figure S7 sex differences #######
+quantLocs <- as.vector(quantile((df$ageAtPreFollow),na.rm=T,probs = seq(0, 1, by = 0.1)))
+pd = position_dodge(3)
+p1 <- ggplot(df,aes(x=(ageAtPreFollow),y=infection,col=gender,fill=gender)) + theme_pubr(base_size = 25,legend = "right")
+p1 <- p1 + geom_smooth(method = "loess")
+p1 <- p1 + xlab("Age (years)") + ylab("Annual P(infection)")
+p1 <- p1 + coord_cartesian(ylim=c(0, .2))
+p1 <- p1 + labs(col = "Sex",fill = "Sex")
+p1 <- p1 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot",position = pd)
+p1 <- p1 + labs("A")
+
+quantLocs <- as.vector(quantile((df$ageAtPreFollow),na.rm=T,probs = seq(0, 1, by = 0.1)))
+pd = position_dodge(3)
+p2 <- ggplot(df,aes(x=(ageAtPreFollow),y=avg_pre,col=gender,fill=gender)) + theme_pubr(base_size = 25,legend = "right")
+p2 <- p2 + geom_smooth(data=df[df$ageAtPreFollow > 0,],mapping=aes(x=(ageAtPreFollow),y=avg_pre,col=gender,fill=gender),
+                       method = "loess")
+p2 <- p2 + ylab("Avg. DENV pre titer (HAI)") + xlab("Age (years)")
+p2 <- p2 + labs(col = "Sex",fill = "Sex")
+p2 <- p2 + scale_y_continuous(breaks=c(0,10,20,40,80,160,320,640,1280,2560,5120),trans = pseudo_log_trans(2))
+p2 <- p2 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot",position = pd)
+p2 <- p2  + labs("B")
+
+print(p1 + p2 + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A'))
+
+ggsave(filename="figureS7.png",path = figFolder,
+       width = 16, height = 6, device='png', dpi=700)
+####### figure S8ab Household Composition Analysis sensitivity analyses (80% of household sampled) ######
 varlist <- c("houseNumMalesNewbornupdate","houseNumFemaleNewbornupdate","houseNumMalesLT5update",
              "houseNumFemalesLT5update","houseNumMales5to18update","houseNumFemales5to18update",
              "houseNumMalesGE18update","houseNumFemalesGE18update","houseNumNewbornupdate",
@@ -1656,7 +1599,7 @@ print("males and females subset 80pc")
 print(A)
 
 
-###### Household HAI and Attack Rate Analysis (80% of household sampled)  #####
+####### figure S8cd Household HAI and Attack Rate Analysis (80% of household sampled)  #####
 #  run with full data
 model1 <- glmmTMB(prediction_round ~ houseFUprePosPropCat,
                   data=df[((df$numSamplesPost)/(df$houseNumSizeupdate+1))>=.8,], 
@@ -1894,20 +1837,16 @@ p4 <- ggplot(data=A2[A2$analysis == 'Multivariate w/ r.e.s',], aes(x=IV, y=ES, y
   scale_y_continuous(breaks = c(0,.5,1,1.5,2))+ 
   theme_pubr(base_size = 25,legend = "right")
 
-print(p4)
-ggsave(filename="household_hi_analysis_80percHouseData.png",path = figFolder,
-       width = 16, height = 10, device='png', dpi=700)
-
 print("HH HI 80% sensitivity")
 print(A2)
 
 print(p2 + p1 + p3 + p4 + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A'))
-ggsave(filename="figure_S9_allHH_80percHouseData.png",path = figFolder,
+ggsave(filename="figure_S8.png",path = figFolder,
        width = 20, height = 14, device='png', dpi=700)
 
 
 
-# Household Composition Analysis sensitivity analyses (seronaive only) #####
+####### figure S9ab Household Composition Analysis sensitivity analyses (seronaive only) #####
 #create variable lists for analyses
 varlist <- c("houseNumMalesNewbornupdate","houseNumFemaleNewbornupdate","houseNumMalesLT5update",
              "houseNumFemalesLT5update","houseNumMales5to18update","houseNumFemales5to18update",
@@ -1922,73 +1861,73 @@ varlist2 <- c("houseNumMalesNewbornupdate","houseNumFemaleNewbornupdate","houseN
 modelouts <- c()
 {
   model <- glmmTMB(prediction_round ~  houseNumMalesNewbornupdate,
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumMalesNewbornupdate"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumFemaleNewbornupdate,
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumFemaleNewbornupdate"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumMalesLT5update,
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumMalesLT5update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumFemalesLT5update,
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumFemalesLT5update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumMales5to18update,
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumMales5to18update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumFemales5to18update,
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumFemales5to18update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumMalesGE18update,
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumMalesGE18update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumFemalesGE18update,
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumFemalesGE18update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumNewbornupdate,
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumNewbornupdate"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumLT5update,
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumLT5update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNum5to18update,
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNum5to18update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumGE18update,
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumGE18update"))
   modelouts <- rbind(modelouts,cis95)
@@ -2031,73 +1970,73 @@ A1$IV = factor(A1$IV, levels = c("# Males GE18",
 modelouts <- c()
 {
   model <- glmmTMB(prediction_round ~  houseNumMalesNewbornupdate + (1|houseAnon),
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumMalesNewbornupdate"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumFemaleNewbornupdate + (1|houseAnon),
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumFemaleNewbornupdate"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumMalesLT5update + (1|houseAnon),
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumMalesLT5update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumFemalesLT5update + (1|houseAnon),
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumFemalesLT5update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumMales5to18update + (1|houseAnon),
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumMales5to18update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumFemales5to18update + (1|houseAnon),
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumFemales5to18update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumMalesGE18update + (1|houseAnon),
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumMalesGE18update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumFemalesGE18update + (1|houseAnon),
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumFemalesGE18update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumNewbornupdate + (1|houseAnon),
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumNewbornupdate"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumLT5update + (1|houseAnon),
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumLT5update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNum5to18update + (1|houseAnon),
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNum5to18update"))
   modelouts <- rbind(modelouts,cis95)
   
   model <- glmmTMB(prediction_round ~  houseNumGE18update + (1|houseAnon),
-                   data=df[df$max_pre < 40,], 
+                   data=df[df$max_pre < 20,], 
                    family = binomial(link="logit"))
   cis95 <- exp(confint(model,parm = "houseNumGE18update"))
   modelouts <- rbind(modelouts,cis95)
@@ -2136,8 +2075,8 @@ A1_re$IV = factor(A1_re$IV, levels = c("# Males GE18",
                                        "# Indiv. NB"))
 
 # run for males + females
-model <- glmmTMB(prediction_round ~  houseNumNewbornupdate + houseNumLT5update + houseNum5to18update + houseNumGE18update  +  sampDate_post_month + sampDate_post_year + avg_pre_cat + (1|houseAnon),
-                 data=df[df$max_pre < 40,], 
+model <- glmmTMB(prediction_round ~  houseNumNewbornupdate + houseNumLT5update + houseNum5to18update + houseNumGE18update  +  sampDate_post_month + sampDate_post_year + (1|houseAnon),
+                 data=df[df$max_pre < 20,], 
                  family = binomial(link="logit"))
 modelouts <- exp(confint(model,parm = varlist1))
 
@@ -2157,8 +2096,8 @@ A2all<-data.frame(DV,IV,ES,LCI,UCI)
 
 # run for males and females
 model <- glmmTMB(prediction_round ~  houseNumMalesNewbornupdate + houseNumFemaleNewbornupdate + houseNumMalesLT5update + houseNumFemalesLT5update + houseNumMales5to18update + houseNumFemales5to18update + 
-                   houseNumMalesGE18update + houseNumFemalesGE18update +  sampDate_post_month + sampDate_post_year + avg_pre_cat + (1|houseAnon),
-                 data=df[df$max_pre < 40,], 
+                   houseNumMalesGE18update + houseNumFemalesGE18update +  sampDate_post_month + sampDate_post_year + (1|houseAnon),
+                 data=df[df$max_pre < 20,], 
                  family = binomial(link="logit"))
 modelouts <- exp(confint(model,parm = varlist2))
 
@@ -2239,42 +2178,30 @@ print("males and females subset seronaive")
 print(A)
 
 
-###### Household HAI and Attack Rate Analysis (seronaive only) #####
+####### figure S9cd Household HAI and Attack Rate Analysis (seronaive only) #####
 #  run with full data
 model1 <- glmmTMB(prediction_round ~ houseFUprePosPropCat,
-                  data=df[df$max_pre < 40,],
+                  data=df[df$max_pre < 20,],
                   family = binomial(link="logit"))
 
 model1_re <- glmmTMB(prediction_round ~ houseFUprePosPropCat + (1|houseAnon),
-                     data=df[df$max_pre < 40,],
+                     data=df[df$max_pre < 20,],
                      family = binomial(link="logit"))
 
-model1_mult <- glmmTMB(prediction_round ~ houseFUprePosPropCat + sampDate_post_month + sampDate_post_year + avg_pre_cat + (1|houseAnon),
-                       data=df[df$max_pre < 40,],
+model1_mult <- glmmTMB(prediction_round ~ houseFUprePosPropCat + sampDate_post_month + sampDate_post_year + (1|houseAnon),
+                       data=df[df$max_pre < 20,],
                        family = binomial(link="logit"))
 
 model2 <- glmmTMB(prediction_round ~ houseNoPreTiterMeanCat,
-                  data=df[df$max_pre < 40,],
+                  data=df[df$max_pre < 20,],
                   family = binomial(link="logit"))
 
 model2_re <- glmmTMB(prediction_round ~ houseNoPreTiterMeanCat + (1|houseAnon),
-                     data=df[df$max_pre < 40,],
+                     data=df[df$max_pre < 20,],
                      family = binomial(link="logit"))
 
-model2_mult <- glmmTMB(prediction_round ~ houseNoPreTiterMeanCat + sampDate_post_month + sampDate_post_year + avg_pre_cat + (1|houseAnon),
-                       data=df[df$max_pre < 40,],
-                       family = binomial(link="logit"))
-
-model3 <- glmmTMB(prediction_round ~ avg_pre_cat,
-                  data=df[df$max_pre < 40,],
-                  family = binomial(link="logit"))
-
-model3_re <- glmmTMB(prediction_round ~ avg_pre_cat + (1|houseAnon),
-                     data=df[df$max_pre < 40,],
-                     family = binomial(link="logit"))
-
-model3_mult <- glmmTMB(prediction_round ~ sampDate_post_month + sampDate_post_year + avg_pre_cat + (1|houseAnon),
-                       data=df[df$max_pre < 40,],
+model2_mult <- glmmTMB(prediction_round ~ houseNoPreTiterMeanCat + sampDate_post_month + sampDate_post_year + (1|houseAnon),
+                       data=df[df$max_pre < 20,],
                        family = binomial(link="logit"))
 
 # get results
@@ -2291,13 +2218,6 @@ modelouts2 <- exp(confint(model2,parm = varlist))
 modelouts2_re <- exp(confint(model2_re,parm = varlist))
 
 modelouts2_mult <- exp(confint(model2_mult,parm = varlist))
-
-varlist <- c("avg_pre_cat<20")
-modelouts3 <- exp(confint(model3,parm = varlist))
-
-modelouts3_re <- exp(confint(model3_re,parm = varlist))
-
-modelouts3_mult <- exp(confint(model3_mult,parm = varlist))
 
 DV<-c("houseFUprePosPropCat1", "houseFUprePosPropCat2") # Heading for Facet Wrap
 IV<-as.factor(c("0-0.2",
@@ -2392,61 +2312,6 @@ A2 <- rbind(A2,A2_multi)
 A2$analysis <- factor(A2$analysis, levels=c('Univariate', 'Univariate w/ r.e.s', 'Multivariate w/ r.e.s'))
 A2$IV <- factor(A2$IV, levels=c("<40","40-66",">66"))
 
-DV<-c("avg_pre_cat<20", "avg_pre_cat40-80","avg_pre_cat80-160","avg_pre_cat160+") # Heading for Facet Wrap
-IV<-as.factor(c("<20",
-                "40-80",
-                "80-160",
-                ">160")) # Independent variable names
-ES<-as.numeric(modelouts3[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
-LCI<-as.numeric(modelouts3[,1]) # Lower 95% confidence interval
-UCI<-as.numeric(modelouts3[,2]) # Upper 95% confidence interval
-PCHval <- rep(16,length(IV))
-
-A3<-data.frame(DV,IV,ES,LCI,UCI,PCHval)
-hold<-data.frame("avg_pre_cat20-40",as.factor("20-40"),1,NA,NA,21)
-names(hold)<-c("DV","IV","ES","LCI","UCI","PCHval")
-A3 <- rbind(A3,hold)
-A3$analysis <- "Univariate"
-
-DV<-c("avg_pre_cat<20", "avg_pre_cat40-80","avg_pre_cat80-160","avg_pre_cat160+") # Heading for Facet Wrap
-IV<-as.factor(c("<20",
-                "40-80",
-                "80-160",
-                ">160")) # Independent variable names
-ES<-as.numeric(modelouts3_re[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
-LCI<-as.numeric(modelouts3_re[,1]) # Lower 95% confidence interval
-UCI<-as.numeric(modelouts3_re[,2]) # Upper 95% confidence interval
-PCHval <- rep(16,length(IV))
-
-A3_re<-data.frame(DV,IV,ES,LCI,UCI,PCHval)
-hold<-data.frame("avg_pre_cat20-40",as.factor("20-40"),1,NA,NA,21)
-names(hold)<-c("DV","IV","ES","LCI","UCI","PCHval")
-A3_re <- rbind(A3_re,hold)
-A3_re$analysis <- "Univariate w/ r.e.s"
-
-
-DV<-c("avg_pre_cat<20", "avg_pre_cat40-80","avg_pre_cat80-160","avg_pre_cat160+") # Heading for Facet Wrap
-IV<-as.factor(c("<20",
-                "40-80",
-                "80-160",
-                ">160")) # Independent variable names
-ES<-as.numeric(modelouts3_mult[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
-LCI<-as.numeric(modelouts3_mult[,1]) # Lower 95% confidence interval
-UCI<-as.numeric(modelouts3_mult[,2]) # Upper 95% confidence interval
-PCHval <- rep(16,length(IV))
-
-A3_multi<-data.frame(DV,IV,ES,LCI,UCI,PCHval)
-hold<-data.frame("avg_pre_cat20-40",as.factor("20-40"),1,NA,NA,21)
-names(hold)<-c("DV","IV","ES","LCI","UCI","PCHval")
-A3_multi <- rbind(A3_multi,hold)
-A3_multi$analysis <- "Multivariate w/ r.e.s"
-
-A3 <- rbind(A3_re,A3)
-A3 <- rbind(A3,A3_multi)
-A3$analysis <- factor(A3$analysis, levels=c('Univariate', 'Univariate w/ r.e.s', 'Multivariate w/ r.e.s'))
-A3$IV <- factor(A3$IV, levels=c("<20","20-40","40-80","80-160",">160"))
-
-
 pd = position_dodge(.5)
 p3 <- ggplot(data=A1[A1$analysis == 'Multivariate w/ r.e.s',], aes(x=IV, y=ES, ymin=LCI, ymax=UCI,group=analysis))+
   geom_pointrange(position = pd)+ 
@@ -2477,27 +2342,139 @@ p4 <- ggplot(data=A2[A2$analysis == 'Multivariate w/ r.e.s',], aes(x=IV, y=ES, y
   scale_y_continuous(breaks = c(0,.5,1,1.5,2))+ 
   theme_pubr(base_size = 25,legend = "right")
 
-print(p4)
-ggsave(filename="household_hi_analysis_seronaive.png",path = figFolder,
-       width = 16, height = 10, device='png', dpi=700)
-
 print("HH HI seronaive sensitivity")
 print(A2)
 
-print(p2 + p1 + p3 + p4 + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A'))
-ggsave(filename="figure_S10_allHH_seronaive.png",path = figFolder,
+print( p2 + p1 + p3 + p4 + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A'))
+ggsave(filename="figure_S9.png",path = figFolder,
        width = 20, height = 14, device='png', dpi=700)
 
 
 
-###### Individual, household, and temporal factor analysis #####
+
+##### figure S11 plot seroprevalence and HAIs by serotype #####
+
+df2prop_serotype <- function(df,yearVec,ageVec,serobound,serotype){
+  df <- df[df$sampDate_post_year %in% yearVec,]
+  
+  p = rep(0, (length(ageVec)-1))
+  n = rep(0, (length(ageVec)-1))
+  inf = rep(0, (length(ageVec)-1))
+  mid = rep(0, (length(ageVec)-1))
+  for(i in 1:(length(ageVec)-1)){
+    dfhold <- df[((df$ageAtFollow) >= ageVec[i])&(df$ageAtFollow) < ageVec[i+1],]
+    dfhold$seropos <- ifelse((dfhold[,names(dfhold)==serotype]>=serobound),1,0)
+    
+    p[i] = mean(round(dfhold$seropos)) 
+    n[i] = length(dfhold$seropos)
+    inf[i] = sum(round(dfhold$seropos))
+    mid[i] = mean(c(ageVec[i],ageVec[i+1]))
+  }
+  newdf <- data.frame (a=ageVec[2:length(ageVec)],
+                       p=p,
+                       n=n,
+                       inf=inf,
+                       mid=mid
+  )
+  return(newdf)
+}
+
+ageVec <- c(1:30)
+pvec17_d1 <- df2prop_serotype(df,2017,ageVec,20,"d1_post")
+pvec17_d2 <- df2prop_serotype(df,2017,ageVec,20,"d2_post")
+pvec17_d3 <- df2prop_serotype(df,2017,ageVec,20,"d3_post")
+pvec17_d4 <- df2prop_serotype(df,2017,ageVec,20,"d4_post")
+
+fit=glm(cbind(pvec17_d1$inf,pvec17_d1$n-pvec17_d1$inf)~offset(log(pvec17_d1$a)),family=binomial(link="cloglog"), data=pvec17_d1)
+phi=exp(coef(summary(fit))[1])
+pvec17_d1$fit = 1-exp(-phi*pvec17_d1$a)
+pvec17_d1$foi = exp(fit$coef)
+
+fit=glm(cbind(pvec17_d2$inf,pvec17_d2$n-pvec17_d2$inf)~offset(log(pvec17_d2$a)),family=binomial(link="cloglog"), data=pvec17_d2)
+phi=exp(coef(summary(fit))[1])
+pvec17_d2$fit = 1-exp(-phi*pvec17_d2$a)
+pvec17_d2$foi = exp(fit$coef)
+
+fit=glm(cbind(pvec17_d3$inf,pvec17_d3$n-pvec17_d3$inf)~offset(log(pvec17_d3$a)),family=binomial(link="cloglog"), data=pvec17_d3)
+phi=exp(coef(summary(fit))[1])
+pvec17_d3$fit = 1-exp(-phi*pvec17_d3$a)
+pvec17_d3$foi = exp(fit$coef)
+
+fit=glm(cbind(pvec17_d4$inf,pvec17_d4$n-pvec17_d4$inf)~offset(log(pvec17_d4$a)),family=binomial(link="cloglog"), data=pvec17_d4)
+phi=exp(coef(summary(fit))[1])
+pvec17_d4$fit = 1-exp(-phi*pvec17_d4$a)
+pvec17_d4$foi = exp(fit$coef)
+
+ageVec <- c(1:93) # add so we can plot entire age range
+pvec17_d1 <- df2prop_serotype(df,2017,ageVec,20,"d1_post")
+pvec17_d2 <- df2prop_serotype(df,2017,ageVec,20,"d2_post")
+pvec17_d3 <- df2prop_serotype(df,2017,ageVec,20,"d3_post")
+pvec17_d4 <- df2prop_serotype(df,2017,ageVec,20,"d4_post")
+
+fit=glm(cbind(pvec17_d1$inf,pvec17_d1$n-pvec17_d1$inf)~offset(log(pvec17_d1$a)),family=binomial(link="cloglog"), data=pvec17_d1)
+phi=exp(coef(summary(fit))[1])
+pvec17_d1$fit = 1-exp(-phi*pvec17_d1$a)
+pvec17_d1$foi = exp(fit$coef)
+
+fit=glm(cbind(pvec17_d2$inf,pvec17_d2$n-pvec17_d2$inf)~offset(log(pvec17_d2$a)),family=binomial(link="cloglog"), data=pvec17_d2)
+phi=exp(coef(summary(fit))[1])
+pvec17_d2$fit = 1-exp(-phi*pvec17_d2$a)
+pvec17_d2$foi = exp(fit$coef)
+
+fit=glm(cbind(pvec17_d3$inf,pvec17_d3$n-pvec17_d3$inf)~offset(log(pvec17_d3$a)),family=binomial(link="cloglog"), data=pvec17_d3)
+phi=exp(coef(summary(fit))[1])
+pvec17_d3$fit = 1-exp(-phi*pvec17_d3$a)
+pvec17_d3$foi = exp(fit$coef)
+
+fit=glm(cbind(pvec17_d4$inf,pvec17_d4$n-pvec17_d4$inf)~offset(log(pvec17_d4$a)),family=binomial(link="cloglog"), data=pvec17_d4)
+phi=exp(coef(summary(fit))[1])
+pvec17_d4$fit = 1-exp(-phi*pvec17_d4$a)
+pvec17_d4$foi = exp(fit$coef)
+
+print("FOI fit and CI")
+print(exp(coef(summary(fit))[1] + c(-1,0,1)*coef(summary(fit))[2]*1.96))
+print(1-exp(-exp(coef(summary(fit))[1] + c(-1,0,1)*coef(summary(fit))[2]*1.96)))
+
+# make actual plot
+quantLocs <- as.vector(quantile(df[(df$sampDate_pre_year < 2018)&(df$ageAtEnr>0),]$ageAtEnr,na.rm=T,probs = seq(0, 1, by = 0.1)))
+p1 <- ggplot()
+p1 <- p1 + geom_line(pvec17_d1,mapping=aes(x=a,y=fit,col="DENV-1"),size=1.2)
+p1 <- p1 + geom_line(pvec17_d2,mapping=aes(x=a,y=fit,col="DENV-2"),size=1.2)
+p1 <- p1 + geom_line(pvec17_d3,mapping=aes(x=a,y=fit,col="DENV-3"),size=1.2)
+p1 <- p1 + geom_line(pvec17_d4,mapping=aes(x=a,y=fit,col="DENV-4"),size=1.2)
+p1 <- p1 + xlab("Age (years)") + ylab("Seroprevalence")
+p1 <- p1 + coord_cartesian(xlim = c(0,93),ylim=c(0,1))
+p1 <- p1 + theme_pubr(base_size = 18,legend="right")
+p1 <- p1 + guides(fill=FALSE,color=guide_legend("Serotype"))
+
+df17 <- df[df$sampDate_post_year %in% c(2017),]
+quantLocs <- as.vector(quantile((df17$ageAtEnr),na.rm=T,probs = seq(0, 1, by = 0.1)))
+p2 <- ggplot() + theme_pubr(base_size = 18,legend = "right")
+p2 <- p2 + geom_smooth(data=df17[df17$ageAtEnr>0,],mapping=aes(y=d1_pre,x=ageAtEnr,col="DENV-1",fill="DENV-1")
+                       ,method = "glm", formula = y ~ splines::ns(x, 4))
+p2 <- p2 + geom_smooth(data=df17[df17$ageAtEnr>0,],mapping=aes(y=d2_pre,x=ageAtEnr,col="DENV-2",fill="DENV-2")
+                       ,method = "glm", formula = y ~ splines::ns(x, 4))
+p2 <- p2 + geom_smooth(data=df17[df17$ageAtEnr>0,],mapping=aes(y=d3_pre,x=ageAtEnr,col="DENV-3",fill="DENV-3")
+                       ,method = "glm", formula = y ~ splines::ns(x, 4))
+p2 <- p2 + geom_smooth(data=df17[df17$ageAtEnr>0,],mapping=aes(y=d4_pre,x=ageAtEnr,col="DENV-4",fill="DENV-4")
+                       ,method = "glm", formula = y ~ splines::ns(x, 4))
+p2 <- p2 + xlab("Age (years)") + ylab("Avg. DENV (HAI)")
+p2 <- p2 + scale_y_continuous(trans=pseudo_log_trans(2),breaks = c(10,20,40,80,160),labels = c("<10","20","40","80","160"))
+p2 <- p2 + coord_cartesian(ylim=c(10,180))
+p2 <- p2 + guides(fill=FALSE,color=guide_legend("Serotype"))
+
+print((p1 + p2)  + plot_annotation(tag_levels = 'A')) + plot_layout(guides = "collect")
+ggsave(filename="S11.png",path = figFolder, width = 12, height = 6, device='png', dpi=700)
+
+
+####### table S2 Individual, household, and temporal factor analysis #####
 namevals <- character(0)
 estsU <- numeric(0)
 estsM <- numeric(0)
 
 modelouts <- c()
 
-# water containers #####
+# water containers
 hold <- df
 
 model <- glmmTMB(prediction_round ~ nbWaterCont,
@@ -2507,7 +2484,7 @@ cis95 <- exp(confint(model,parm = "nbWaterCont"))
 modelouts <- rbind(modelouts,cis95)
 
 
-# year #####
+# year
 hold$sampDate_post_year <- as.factor(hold$sampDate_post_year)
 
 model <- glmmTMB(prediction_round ~ sampDate_post_year,
@@ -2516,7 +2493,7 @@ model <- glmmTMB(prediction_round ~ sampDate_post_year,
 cis95 <- exp(confint(model,parm = c("sampDate_post_year2017","sampDate_post_year2018","sampDate_post_year2019","sampDate_post_year2020","sampDate_post_year2021","sampDate_post_year2022")))
 modelouts <- rbind(modelouts,cis95)
 
-# month #####
+# month
 hold$sampDate_post_month <- factor(hold$sampDate_post_month,levels = c("5","1","2","3","4","6","7","8","9","10","11"))
 model <- glmmTMB(prediction_round ~ sampDate_post_month,
                  data=hold,
@@ -2525,7 +2502,7 @@ cis95 <- exp(confint(model,parm = c("sampDate_post_month1","sampDate_post_month2
                                     "sampDate_post_month7","sampDate_post_month8","sampDate_post_month9","sampDate_post_month10","sampDate_post_month11")))
 modelouts <- rbind(modelouts,cis95)
 
-# individual pre titer #####
+# individual pre titer
 model <- glmmTMB(prediction_round ~ avg_pre,
                  data=hold,
                  family = binomial(link="logit"))
@@ -2534,28 +2511,28 @@ modelouts <- rbind(modelouts,cis95)
 
 
 
-# individual pre titer Categorical #####
+# individual pre titer Categorical
 model <- glmmTMB(prediction_round ~ avgHAICatPreFollow,
                  data=hold,
                  family = binomial(link="logit"))
 cis95 <- exp(confint(model,parm = c("avgHAICatPreFollow20-40","avgHAICatPreFollow40-80","avgHAICatPreFollow80-160","avgHAICatPreFollow160+")))
 modelouts <- rbind(modelouts,cis95)
 
-# water containers plastic #####
+# water containers plastic
 model <- glmmTMB(prediction_round ~ nbWaterContPlastic,
                  data=hold,
                  family = binomial(link="logit"))
 cis95 <- exp(confint(model,parm = "nbWaterContPlastic"))
 modelouts <- rbind(modelouts,cis95)
 
-# water plastic bottles #####
+# water plastic bottles
 model <- glmmTMB(prediction_round ~ waterContainerSoftDrink,
                  data=hold,
                  family = binomial(link="logit"))
 cis95 <- exp(confint(model,parm = "waterContainerSoftDrink"))
 modelouts <- rbind(modelouts,cis95)
 
-# house type (removing houses labeled "other") #####
+# house type (removing houses labeled "other") 
 model <- glmmTMB(prediction_round ~ houseType,
                  data=df[df$houseType != "Others",],
                  family = binomial(link="logit"))
@@ -2563,7 +2540,7 @@ cis95 <- exp(confint(model,parm = c("houseTypeSingle","houseTypeTownhouse")))
 modelouts <- rbind(modelouts,cis95)
 
 
-# garbage management #####
+# garbage management
 
 model <- glmmTMB(prediction_round ~ as.factor(garbageManagement=="Car"),
                  data=hold,
@@ -2571,77 +2548,70 @@ model <- glmmTMB(prediction_round ~ as.factor(garbageManagement=="Car"),
 cis95 <- exp(confint(model,parm = "as.factor(garbageManagement == \"Car\")TRUE"))
 modelouts <- rbind(modelouts,cis95)
 
-# concrete house #####
+# concrete house
 model <- glmmTMB(prediction_round ~ constructionMaterialsConcrete,
-                 data=hold,
+                 data=hold[hold$constructionMaterialsConcrete!=0,],
                  family = binomial(link="logit"))
 cis95 <- exp(confint(model,parm = "constructionMaterialsConcreteNULL"))
 modelouts <- rbind(modelouts,cis95)
 
-# zinc roof #####
+# zinc roof
 model <- glmmTMB(prediction_round ~ roofTypeZinc,
-                 data=hold,
+                 data=hold[hold$roofTypeZinc!=0,],
                  family = binomial(link="logit"))
 cis95 <- exp(confint(model,parm = "roofTypeZincNULL"))
 modelouts <- rbind(modelouts,cis95)
 
-
-
-# nearby source of water #####
+# nearby source of water
 model <- glmmTMB(prediction_round ~ (waterResourcesNearby == 1),
-                 data=hold,
+                 data=hold[hold$waterResourcesNearby!=0,],
                  family = binomial(link="logit"))
 cis95 <- exp(confint(model,parm="waterResourcesNearby == 1TRUE"))
 modelouts <- rbind(modelouts,cis95)
 
-# water supply by pipe #####
+# water supply by pipe
 model <- glmmTMB(prediction_round ~ (waterTypePipe==1),
-                 data=hold,
+                 data=hold[hold$waterTypePipe!=0,],
                  family = binomial(link="logit"))
 cis95 <- exp(confint(model,parm="waterTypePipe == 1TRUE"))
 modelouts <- rbind(modelouts,cis95)
 
-
-
-# door screens #####
+# door screens
 model <- glmmTMB(prediction_round ~ doorScreens,
                  data=hold,
                  family = binomial(link="logit"))
 cis95 <- exp(confint(model,parm="doorScreens"))
 modelouts <- rbind(modelouts,cis95)
 
-# houseNoPreTiterMean #####
+# houseNoPreTiterMean
 model <- glmmTMB(prediction_round ~ houseNoPreTiterMean,
                  data=hold,
                  family = binomial(link="logit"))
 cis95 <- exp(confint(model,parm="houseNoPreTiterMean"))
 modelouts <- rbind(modelouts,cis95)
 
-
-# toilets outside #####
+# toilets outside
 model <- glmmTMB(prediction_round ~ numToiletsOutside,
                  data=hold,
                  family = binomial(link="logit"))
 cis95 <- exp(confint(model,parm="numToiletsOutside"))
 modelouts <- rbind(modelouts,cis95)
 
-
-# occupation  #####
+# occupation
 model <- glmmTMB(prediction_round ~ intervalOccupationTop4,
                  data=hold,
                  family = binomial(link="logit"))
 cis95 <- exp(confint(model,parm=c("intervalOccupationTop4Farmer","intervalOccupationTop4Student","intervalOccupationTop4Unemployed")))
 modelouts <- rbind(modelouts,cis95)
 
-
-# gender #####
+# gender
 model <- glmmTMB(prediction_round ~ gender,
                  data=hold,
                  family = binomial(link="logit"))
 cis95 <- exp(confint(model,parm="genderM"))
 modelouts <- rbind(modelouts,cis95)
 
-# ageCatPreFollow #####
+# ageCatPreFollow
 model <- glmmTMB(prediction_round ~ ageCatPreFollow,
                  data=hold,
                  family = binomial(link="logit"))
@@ -2651,9 +2621,7 @@ modelouts <- rbind(modelouts,cis95)
 print("univariate")
 print(modelouts)
 
-
-
-# multivariate analysis household REs #########
+# multivariate analysis household REs
 
 modeloutsMultHouse <- c()
 
@@ -2674,7 +2642,7 @@ print("multivariate -- household res")
 print(modeloutsMultHouse)
 
 
-# multivariate analysis household & indiv REs#########
+# multivariate analysis household & indiv REs
 modeloutsMultHouseIndiv <- c()
 
 hold$sampDate_post_year <- as.factor(hold$sampDate_post_year)
@@ -2696,7 +2664,7 @@ print(modeloutsMultHouseIndiv)
 
 
 
-# multivariate analysis household REs #########
+# multivariate analysis household REs
 
 modeloutsMultHouse <- c()
 hold$sampDate_post_month <- as.factor(hold$sampDate_post_month)
@@ -2716,39 +2684,4 @@ modeloutsMultHouse <- rbind(modeloutsMultHouse,cis95)
 
 print("multivariate -- household res w/ titers")
 print(modeloutsMultHouse)
-
-# create confusion matrix for training data #####
-
-confusion_mat_plot <- function(pred_val,true_val,figure_name,figure_folder,title_str,subtitle_str){
-  tableval <- data.frame(confusionMatrix(as.factor(pred_val),true_val)$table)
-  
-  # create table for plotting with new labels
-  plotTable <- tableval %>%
-    mutate(goodbad = ifelse(tableval$Prediction == tableval$Reference, "good", "bad")) %>%
-    group_by(Reference) %>%
-    dplyr::mutate(prop = Freq/sum(Freq))
-  
-  # fill alpha relative to sensitivity/specificity by proportional outcomes within reference groups (see dplyr code above as well as original confusion matrix for comparison)
-  p <- ggplot(data = plotTable, mapping = aes(x = Reference, y = Prediction, fill = goodbad, alpha = prop)) +
-    geom_tile() +
-    geom_text(aes(label = Freq), vjust = .5, fontface  = "bold", alpha = 1) +
-    scale_fill_manual(values = c(good = "green", bad = "red")) +
-    theme_bw() +
-    ggtitle(title_str,subtitle = subtitle_str) +
-    xlim(rev(levels(tableval$Reference)))
-  print(p)
-  ggsave(filename=figure_name,path = figure_folder, width = 6, height = 4, device='png', dpi=700)
-  
-}
-confusion_mat_plot(as.factor(round(df[df$training==1,]$prediction)==1),as.factor(df[df$training==1,]$prediction_round==TRUE),paste0("S7.png"),figFolder,"XGboost: Confusion matrix for training data","")
-
-
-# create distributiion of prediiction plot #####
-p <- ggplot(data = df,aes(x=prediction)) + geom_histogram(binwidth = .025)
-p <- p + scale_x_continuous("Model prediction")
-p <- p + scale_y_continuous("Intervals")
-p <- p + theme_pubr()
-print(p)
-ggsave(filename="S8.png",path = figFolder, width = 6, height = 4, device='png', dpi=700)
-
 
