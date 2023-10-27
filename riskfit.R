@@ -34,8 +34,7 @@ df <- householdCohortData
 impMat <- importanceMat
 
 # rename features
-impMat$Feature <- rep(c("Gender",
-                        "JE Pre HAI", "DENV-1 Pre HAI","DENV-2 Pre HAI","DENV-3 Pre HAI","DENV-4 Pre HAI",
+impMat$Feature <- rep(c("JE Pre HAI", "DENV-1 Pre HAI","DENV-2 Pre HAI","DENV-3 Pre HAI","DENV-4 Pre HAI",
                         "Max. DENV Pre HAI","Min. DENV Pre HAI","Avg. DENV Pre HAI","Var. DENV Pre HAI",
                         "JE Post HAI", "DENV-1 Post HAI","DENV-2 Post HAI","DENV-3 Post HAI","DENV-4 Post HAI",
                         "Max. DENV Post HAI","Min. DENV Post HAI","Var. DENV Post HAI","Avg. DENV Post HAI",
