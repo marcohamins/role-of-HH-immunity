@@ -1,4 +1,4 @@
-# Code for *Identifying the role of household immunity in driving individual dengue virus infection risk*
+# Code for *Household immunity and individual risk of infection with dengue virus in a prospective, longitudinal cohort study*
 
 There are two major scripts, riskfit.R and modelfit.R. 
 1. riskfit.R will run all analyses found in the manuscript, print important values to the console and save figures to the /Figures subfolder that were found in the manuscript.

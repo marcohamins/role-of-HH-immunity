@@ -1,6 +1,7 @@
 ########  Details ########
 ### Author: Marco Hamins-Puertolas 
-### Code to output figures and risk estimates from manuscript
+### Code to output figures and risk estimates from manuscript titled
+### Household immunity and individual risk of infection with dengue virus in a prospective, longitudinal cohort study
 
 ###### Read in necessary libraries #####
 library(patchwork)
@@ -14,6 +15,7 @@ library(tidygam)
 library(glmmTMB)
 library(ggpubr)
 library(stringr)
+library(caret)
 
 ##### Import data and set up analyses ######
 curDir <- getwd() # set working directory to /role-of-HH-immunity on local comp
@@ -111,7 +113,7 @@ p2 <- p2 + scale_y_continuous(trans=pseudo_log_trans(2),breaks = c(10,20,40,80,1
 p2 <- p2 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot")
 p2 <- p2 + coord_cartesian(ylim=c(10,160))
 
-print((p1 + p2)  + plot_annotation(tag_levels = 'A'))
+print((p1 + p2)  + plot_annotation(tag_levels = 'a'))
 
 ggsave(filename="figure1.png",path = figFolder,
        width = 16, height = 10, device='png', dpi=800)
@@ -173,12 +175,13 @@ impMatSum <- impMat %>% group_by(Feature) %>% dplyr::summarise(mean = mean(Gain)
 impMatSum <- impMatSum %>% dplyr::arrange(desc(mean))
 
 p3 <- ggplot(impMatSum[1:10,],aes(y=reorder(Feature, mean),x=mean)) + geom_bar(stat="identity", position=position_dodge(),orientation = "y",fill="#009E73") 
+p3 <- p3 + geom_jitter(impMat[impMat$Feature %in% impMatSum[1:10,]$Feature,],mapping=aes(y=Feature,x=Gain),alpha=.25)
 p3 <- p3 + geom_errorbar(aes(xmin=qslow,xmax=qsup),col="black",orientation = "y")
 p3 <- p3 + xlab("Gain") + ylab("Feature")
 p3 <- p3 + theme_pubr(base_size = 18)
 
 # combine into one plot
-p <- (p3/(p1) + plot_annotation(tag_levels = list(c('B','C'))))
+p <- (p3/(p1) + plot_annotation(tag_levels = list(c('b','c'))))
 print(p)
 ggsave(filename="figure2.png",path = figFolder,
        width = 20, height = 10, device='png', dpi=700)
@@ -479,7 +482,7 @@ p5 <- p5 + labs(col="")
 p5 <- p5 + theme_pubr(base_size = 18,legend="top",x.text.angle = 0)
 p5 <- p5 + coord_cartesian(ylim=c(0,210),xlim=c(min(dfInfTypeAgeRatio$lowerB),max(dfInfTypeAgeRatio$upperB)))
 
-print((p1 + p2+ p3)/( p4 + p5) + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A') & theme(legend.position = 'top') )
+print((p1 + p2+ p3)/( p4 + p5) + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'a') & theme(legend.position = 'top') )
 
 ggsave(filename="figure3.png",path = figFolder,
        width = 16, height = 8, device='png', dpi=700)
@@ -1029,8 +1032,8 @@ p4 <- ggplot(data=A2[A2$analysis == 'Multivariate w/ r.e.s',], aes(x=IV, y=ES, y
 print("HH HI")
 print(A2)
 
-print( p2 + p1 + p3 + p4 +plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A'))
-ggsave(filename="figure_4_allHH.png",path = figFolder,
+print( p2 + p1 + p3 + p4 +plot_layout(guides = "collect") + plot_annotation(tag_levels = 'a'))
+ggsave(filename="figure4.png",path = figFolder,
        width = 20, height = 14, device='png', dpi=700)
 ####### figure 5 individual factors #######
 ## pre titer vs prob
@@ -1060,12 +1063,12 @@ p3 <- p3 + coord_cartesian(ylim=c(0, .2),xlim=c(9,2560))
 p3 <- p3 + scale_x_continuous(trans=pseudo_log_trans(2),breaks = c(10,80,640,2560),labels = c("<10","80","640","2560"))
 p3 <- p3 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot")
 
-p <- (p1 + p2 + p3) + plot_layout(guides = "collect")  + plot_annotation(tag_levels = 'A')
+p <- (p1 + p2 + p3) + plot_layout(guides = "collect")  + plot_annotation(tag_levels = 'a')
 print(p)
 ggsave(filename="figure5.png",path = figFolder,
        width = 18, height = 6, device='png', dpi=700)
 
-####### figure S2 sex differences -- foi #######
+####### figure ED1 sex differences -- foi #######
 
 ageVec <- c(1:60)
 dfm <- df[df$gender == "M",]
@@ -1092,19 +1095,41 @@ pvec17 <- rbind(pvec17female,pvec17male)
 # make actual plot
 quantLocs <- as.vector(quantile(df[(df$sampDate_pre_year< 2018)&(df$ageAtEnr>1),]$ageAtEnr,na.rm=T,probs = seq(0, 1, by = 0.05)))
 pd = position_dodge(1)
-p3 <- ggplot()
-p3 <- p3 + geom_line(pvec17,mapping=aes(x=a,y=fit,col=gender),size=1.2)
-p3 <- p3 + xlab("Age (years)") + ylab("Seroprevalence")
-p3 <- p3 + coord_cartesian(xlim = c(0,60),ylim=c(0,1))
-p3 <- p3 + theme_pubr(base_size = 18,legend="right") 
-p3 <- p3 + stat_summary_bin(df[(df$sampDate_pre_year< 2018)&(df$ageAtEnr>1),],mapping=aes(x=ageAtEnr,y=as.numeric(!((d1_pre<40)&(d2_pre<40)&(d3_pre<40)&(d4_pre<40))),col= gender),geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot",position=pd)
-p3 <- p3 + labs("C") +  guides(col=guide_legend("Sex")) 
-print(p3)
+p2 <- ggplot()
+p2 <- p2 + geom_line(pvec17,mapping=aes(x=a,y=fit,col=gender),size=1.2)
+p2 <- p2 + xlab("Age (years)") + ylab("Seroprevalence")
+p2 <- p2 + coord_cartesian(xlim = c(0,60),ylim=c(0,1))
+p2 <- p2 + theme_pubr(base_size = 18,legend="right") 
+p2 <- p2 + stat_summary_bin(df[(df$sampDate_pre_year< 2018)&(df$ageAtEnr>1),],mapping=aes(x=ageAtEnr,y=as.numeric(!((d1_pre<40)&(d2_pre<40)&(d3_pre<40)&(d4_pre<40))),col= gender),geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot",position=pd)
+p2 <- p2 + labs("b") +  guides(col=guide_legend("Sex")) 
 
-ggsave(filename="figureS2.png",path = figFolder,
+quantLocs <- as.vector(quantile((df$ageAtPreFollow),na.rm=T,probs = seq(0, 1, by = 0.1)))
+pd = position_dodge(3)
+p3 <- ggplot(df,aes(x=(ageAtPreFollow),y=infection,col=gender,fill=gender)) + theme_pubr(base_size = 25,legend = "right")
+p3 <- p3 + geom_smooth(method = "loess")
+p3 <- p3 + xlab("Age (years)") + ylab("Annual P(infection)")
+p3 <- p3 + coord_cartesian(ylim=c(0, .2))
+p3 <- p3 + labs(col = "Sex",fill = "Sex")
+p3 <- p3 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot",position = pd)
+p3 <- p3 + labs("c")
+
+quantLocs <- as.vector(quantile((df$ageAtPreFollow),na.rm=T,probs = seq(0, 1, by = 0.1)))
+pd = position_dodge(3)
+p4 <- ggplot(df,aes(x=(ageAtPreFollow),y=avg_pre,col=gender,fill=gender)) + theme_pubr(base_size = 25,legend = "right")
+p4 <- p4 + geom_smooth(data=df[df$ageAtPreFollow > 0,],mapping=aes(x=(ageAtPreFollow),y=avg_pre,col=gender,fill=gender),
+                       method = "loess")
+p4 <- p4 + ylab("Avg. DENV pre titer (HAI)") + xlab("Age (years)")
+p4 <- p4 + labs(col = "Sex",fill = "Sex")
+p4 <- p4 + scale_y_continuous(breaks=c(0,10,20,40,80,160,320,640,1280,2560,5120),trans = pseudo_log_trans(2))
+p4 <- p4 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot",position = pd)
+p4 <- p4  + labs("d")
+
+print(p2 + p3 + p4 + plot_layout(guides = "collect"))
+
+ggsave(filename="ED1.png",path = figFolder,
        width = 10, height = 6, device='png', dpi=700)
 
-####### figure S3 create confusion matrix for training data #####
+####### figure ED2a create confusion matrix for training data #####
 
 confusion_mat_plot <- function(pred_val,true_val,figure_name,figure_folder,title_str,subtitle_str){
   tableval <- data.frame(confusionMatrix(as.factor(pred_val),true_val)$table)
@@ -1127,18 +1152,18 @@ confusion_mat_plot <- function(pred_val,true_val,figure_name,figure_folder,title
   ggsave(filename=figure_name,path = figure_folder, width = 6, height = 4, device='png', dpi=700)
   
 }
-confusion_mat_plot(as.factor(round(df[df$training==1,]$prediction)==1),as.factor(df[df$training==1,]$prediction_round==TRUE),paste0("S3.png"),figFolder,"XGboost: Confusion matrix for training data","")
+confusion_mat_plot(as.factor(round(df[df$training==1,]$prediction)==1),as.factor(df[df$training==1,]$prediction_round==TRUE),paste0("ED2a.png"),figFolder,"XGboost: Confusion matrix for training data","")
 
 
-####### figure S4 create distributiion of prediction plot #####
+####### figure ED2b create distributiion of prediction plot #####
 p <- ggplot(data = df,aes(x=prediction)) + geom_histogram(binwidth = .025)
 p <- p + scale_x_continuous("Model prediction")
 p <- p + scale_y_continuous("Intervals")
 p <- p + theme_pubr()
 print(p)
-ggsave(filename="S4.png",path = figFolder, width = 6, height = 4, device='png', dpi=700)
+ggsave(filename="ED2b.png",path = figFolder, width = 6, height = 4, device='png', dpi=700)
 
-####### figure S5 figure 2 by serotype #######
+####### figure ED3 (fig2 by serotype) #######
 
 ## hai pre v post 
 
@@ -1206,73 +1231,522 @@ p5 <- p5 + guides(fill=guide_legend("Predicted Infection"),color="none")
 
 print(p1 + p2 + p3 + p4 + p5 + plot_layout(nrow = 5,guides = "collect") & theme(legend.position = 'right',
                                                                                 legend.direction = 'vertical'))
-
-ggsave(filename="figureS5.png",path = figFolder,
+ggsave(filename="ED3.png",path = figFolder,
        width = 29, height = 30, device='png', dpi=700)
 
+####### figure ED4ab Household Composition Analysis sensitivity analyses (>=4x increase) #####
+#create variable lists for analyses
+varlist <- c("houseNumMalesNewbornupdate","houseNumFemaleNewbornupdate","houseNumMalesLT5update",
+             "houseNumFemalesLT5update","houseNumMales5to18update","houseNumFemales5to18update",
+             "houseNumMalesGE18update","houseNumFemalesGE18update","houseNumNewbornupdate",
+             "houseNumLT5update","houseNum5to18update","houseNumGE18update")
+varlist1 <- c("houseNumNewbornupdate","houseNumLT5update","houseNum5to18update","houseNumGE18update")
+varlist2 <- c("houseNumMalesNewbornupdate","houseNumFemaleNewbornupdate","houseNumMalesLT5update",
+              "houseNumFemalesLT5update","houseNumMales5to18update","houseNumFemales5to18update",
+              "houseNumMalesGE18update","houseNumFemalesGE18update")
 
-####### figure S6 individuals with multiple infections #####
+df$houseFUprePosPropCat_4x <- ifelse(df$houseFUprePosProp_4x==0,0,
+                                     ifelse((df$houseFUprePosProp_4x>0)&(df$houseFUprePosProp_4x<.2),1,
+                                            ifelse((df$houseFUprePosProp_4x>=.2)&(df$houseFUprePosProp_4x<.4),2,
+                                                   ifelse((df$houseFUprePosProp_4x>=.4)&(df$houseFUprePosProp_4x<=1),2,NA))))
+df$houseFUprePosPropCat_4x <- as.factor(df$houseFUprePosPropCat_4x)
 
-df$pos <- 1:length(df$subjectNoAnon)
-df$cumsumInf <- NA
-for(i in 1:length(unique(df$subjectNoAnon))){
-  hold <- df[df$subjectNoAnon == unique(df$subjectNoAnon)[i],]
-  hold$cumInf <- cumsum(hold$prediction_round[order(hold$followUp)])[match(hold$followUp,hold$followUp[order(hold$followUp)])]
-  df[match(hold$pos,df$pos),]$cumsumInf <- hold$cumInf 
+# all unadjusted analyses ###
+modelouts <- c()
+{
+  model <- glmmTMB((max_div>=4) ~  houseNumMalesNewbornupdate,
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumMalesNewbornupdate"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumFemaleNewbornupdate,
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumFemaleNewbornupdate"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumMalesLT5update,
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumMalesLT5update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumFemalesLT5update,
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumFemalesLT5update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumMales5to18update,
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumMales5to18update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumFemales5to18update,
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumFemales5to18update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumMalesGE18update,
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumMalesGE18update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumFemalesGE18update,
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumFemalesGE18update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumNewbornupdate,
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumNewbornupdate"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumLT5update,
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumLT5update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNum5to18update,
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNum5to18update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumGE18update,
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumGE18update"))
+  modelouts <- rbind(modelouts,cis95)
 }
 
-# plot how this varies by age
-p1 <- ggplot(df[(df$prediction_round),],aes(x=ageAtFollow,fill=(as.factor(cumsumInf)))) 
-p1 <- p1 + geom_bar() + scale_x_binned(breaks = seq(5,90,5),limits=c(0,90),name = "Age (years)",
-                                       labels = c("","10","","20","","30","","40","","50","","60","","70","","80","","90")) 
-p1 <- p1 + theme_pubr(base_size = 24,legend = "top")
-p1 <- p1 + labs(fill="Subj. inf. #")
-p1 <- p1 + ylab("Number of intervals")
-p1 <- p1 + scale_fill_viridis_d(labels = c("TRUE" = "Primary", "FALSE" = "Secondary"))
-p1 <- p1 + guides(fill=guide_legend(reverse=TRUE))
+DV<-varlist # Heading for Facet Wrap
+IV<-as.factor(c("# Males NB",
+                "# Females NB",
+                "# Males 1-5",
+                "# Females 1-5",
+                "# Males 5-18",
+                "# Females 5-18",
+                "# Males GE18",
+                "# Females GE18",
+                "# Indiv. NB",
+                "# Indiv. 1-5",
+                "# Indiv. 5-18",
+                "# Indiv. GE18")) # Independent variable names
+ES<-as.numeric(modelouts[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
+LCI<-as.numeric(modelouts[,1]) # Lower 95% confidence interval
+UCI<-as.numeric(modelouts[,2]) # Upper 95% confidence interval
 
-# plot how probability varies by age
-quantLocs <- as.vector(quantile((df$ageAtFollow),na.rm=T,probs = c(0,seq(.2, 1, by = 0.1))))
-p2 <- ggplot(df[df$cumsumInf>0,],aes(x=(ageAtFollow),y=as.numeric(cumsumInf>1))) + theme_pubr(base_size = 24,legend = "top")
-p2 <- p2 + geom_smooth(method = "glm", method.args = list(family = "binomial"), formula = y ~ splines::ns(x, 3),col="black")
-p2 <- p2 + xlab("Age (years)") + ylab("P(2nd/3rd infection | infection)")#ylab("Annual probability of infection")
-#p2 <- p2 + coord_cartesian(ylim=c(0, .2),xlim=c(9,2560))
-#p2 <- p2 + scale_x_continuous(breaks=c(0,10,40,160,640,2560),trans = pseudo_log_trans(2))
-p2 <- p2 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot")
+A1<-data.frame(DV,IV,ES,LCI,UCI)
+
+A1$IV = factor(A1$IV, levels = c("# Males GE18",
+                                 "# Males 5-18",
+                                 "# Males 1-5",
+                                 "# Males NB",
+                                 "# Females GE18",
+                                 "# Females 5-18",
+                                 "# Females 1-5",
+                                 "# Females NB",
+                                 "# Indiv. GE18",
+                                 "# Indiv. 5-18",
+                                 "# Indiv. 1-5",
+                                 "# Indiv. NB"))
+
+# all adjusted analyses with household random effects ###
+
+modelouts <- c()
+{
+  model <- glmmTMB((max_div>=4) ~  houseNumMalesNewbornupdate + (1|houseAnon),
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumMalesNewbornupdate"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumFemaleNewbornupdate + (1|houseAnon),
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumFemaleNewbornupdate"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumMalesLT5update + (1|houseAnon),
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumMalesLT5update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumFemalesLT5update + (1|houseAnon),
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumFemalesLT5update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumMales5to18update + (1|houseAnon),
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumMales5to18update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumFemales5to18update + (1|houseAnon),
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumFemales5to18update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumMalesGE18update + (1|houseAnon),
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumMalesGE18update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumFemalesGE18update + (1|houseAnon),
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumFemalesGE18update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumNewbornupdate + (1|houseAnon),
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumNewbornupdate"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumLT5update + (1|houseAnon),
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumLT5update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNum5to18update + (1|houseAnon),
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNum5to18update"))
+  modelouts <- rbind(modelouts,cis95)
+  
+  model <- glmmTMB((max_div>=4) ~  houseNumGE18update + (1|houseAnon),
+                   data=df, 
+                   family = binomial(link="logit"))
+  cis95 <- exp(confint(model,parm = "houseNumGE18update"))
+  modelouts <- rbind(modelouts,cis95)
+}
+
+DV<-varlist # Heading for Facet Wrap
+IV<-as.factor(c("# Males NB",
+                "# Females NB",
+                "# Males 1-5",
+                "# Females 1-5",
+                "# Males 5-18",
+                "# Females 5-18",
+                "# Males GE18",
+                "# Females GE18",
+                "# Indiv. NB",
+                "# Indiv. 1-5",
+                "# Indiv. 5-18",
+                "# Indiv. GE18")) # Independent variable names
+ES<-as.numeric(modelouts[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
+LCI<-as.numeric(modelouts[,1]) # Lower 95% confidence interval
+UCI<-as.numeric(modelouts[,2]) # Upper 95% confidence interval
+
+A1_re<-data.frame(DV,IV,ES,LCI,UCI)
+
+A1_re$IV = factor(A1_re$IV, levels = c("# Males GE18",
+                                       "# Males 5-18",
+                                       "# Males 1-5",
+                                       "# Males NB",
+                                       "# Females GE18",
+                                       "# Females 5-18",
+                                       "# Females 1-5",
+                                       "# Females NB",
+                                       "# Indiv. GE18",
+                                       "# Indiv. 5-18",
+                                       "# Indiv. 1-5",
+                                       "# Indiv. NB"))
+
+# run for males + females
+model <- glmmTMB((max_div>=4) ~  houseNumNewbornupdate + houseNumLT5update + houseNum5to18update + houseNumGE18update  +  sampDate_post_month + sampDate_post_year + (1|houseAnon),
+                 data=df, 
+                 family = binomial(link="logit"))
+modelouts <- exp(confint(model,parm = varlist1))
+
+# Data for 1 forest plot ###
+DV<-varlist1 # Heading for Facet Wrap
+IV<-as.factor(c("# Indiv. NB",
+                "# Indiv. 1-5",
+                "# Indiv. 5-18",
+                "# Indiv. GE18"))  # Independent variable names
+ES<-as.numeric(modelouts[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
+LCI<-as.numeric(modelouts[,1]) # Lower 95% confidence interval
+UCI<-as.numeric(modelouts[,2]) # Upper 95% confidence interval
+
+A2all<-data.frame(DV,IV,ES,LCI,UCI)
 
 
-p <- p1 + p2 + plot_annotation(tag_levels = 'A')
-print(p)
-ggsave(filename="figureS6.png",path = figFolder,
-       width = 14, height = 10, device='png', dpi=700)
 
-####### figure S7 sex differences #######
-quantLocs <- as.vector(quantile((df$ageAtPreFollow),na.rm=T,probs = seq(0, 1, by = 0.1)))
-pd = position_dodge(3)
-p1 <- ggplot(df,aes(x=(ageAtPreFollow),y=infection,col=gender,fill=gender)) + theme_pubr(base_size = 25,legend = "right")
-p1 <- p1 + geom_smooth(method = "loess")
-p1 <- p1 + xlab("Age (years)") + ylab("Annual P(infection)")
-p1 <- p1 + coord_cartesian(ylim=c(0, .2))
-p1 <- p1 + labs(col = "Sex",fill = "Sex")
-p1 <- p1 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot",position = pd)
-p1 <- p1 + labs("A")
+# run for males and females
+model <- glmmTMB((max_div>=4) ~  houseNumMalesNewbornupdate + houseNumFemaleNewbornupdate + houseNumMalesLT5update + houseNumFemalesLT5update + houseNumMales5to18update + houseNumFemales5to18update + 
+                   houseNumMalesGE18update + houseNumFemalesGE18update +  sampDate_post_month + sampDate_post_year + (1|houseAnon),
+                 data=df, 
+                 family = binomial(link="logit"))
+modelouts <- exp(confint(model,parm = varlist2))
 
-quantLocs <- as.vector(quantile((df$ageAtPreFollow),na.rm=T,probs = seq(0, 1, by = 0.1)))
-pd = position_dodge(3)
-p2 <- ggplot(df,aes(x=(ageAtPreFollow),y=avg_pre,col=gender,fill=gender)) + theme_pubr(base_size = 25,legend = "right")
-p2 <- p2 + geom_smooth(data=df[df$ageAtPreFollow > 0,],mapping=aes(x=(ageAtPreFollow),y=avg_pre,col=gender,fill=gender),
-                       method = "loess")
-p2 <- p2 + ylab("Avg. DENV pre titer (HAI)") + xlab("Age (years)")
-p2 <- p2 + labs(col = "Sex",fill = "Sex")
-p2 <- p2 + scale_y_continuous(breaks=c(0,10,20,40,80,160,320,640,1280,2560,5120),trans = pseudo_log_trans(2))
-p2 <- p2 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot",position = pd)
-p2 <- p2  + labs("B")
+# Data for 1 forest plot ###
+DV<-varlist2 # Heading for Facet Wrap
+IV<-as.factor(c("# Males NB",
+                "# Females NB",
+                "# Males 1-5",
+                "# Females 1-5",
+                "# Males 5-18",
+                "# Females 5-18",
+                "# Males GE18",
+                "# Females GE18")) # Independent variable names
+ES<-as.numeric(modelouts[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
+LCI<-as.numeric(modelouts[,1]) # Lower 95% confidence interval
+UCI<-as.numeric(modelouts[,2]) # Upper 95% confidence interval
 
-print(p1 + p2 + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A'))
+A2males_females<-data.frame(DV,IV,ES,LCI,UCI)
 
-ggsave(filename="figureS7.png",path = figFolder,
-       width = 16, height = 6, device='png', dpi=700)
-####### figure S8ab Household Composition Analysis sensitivity analyses (80% of household sampled) ######
+
+## plots 
+
+# all
+A1$analysis <- "Univariate"
+A1_re$analysis <- "Univariate w/ r.e.s"
+A1v1 <- A1
+A1v1 <- A1v1[A1v1$DV %in% varlist1,]
+A1_re_v1 <- A1_re
+A1_re_v1 <- A1_re_v1[A1_re_v1$DV %in% varlist1,]
+A2all$analysis <- "Multivariate w/ r.e.s"
+A <- rbind(A1v1,A2all)
+A <- rbind(A1_re_v1,A)
+
+A$analysis <- factor(A$analysis, levels=c('Univariate', 'Univariate w/ r.e.s', 'Multivariate w/ r.e.s'))
+
+pd = position_dodge(.5)
+p2 <- ggplot(data=A[A$analysis == 'Multivariate w/ r.e.s',], aes(x=IV, y=ES, ymin=LCI, ymax=UCI,group=analysis))+
+  geom_pointrange(position = pd)+ 
+  geom_hline(yintercept=1, lty=2, size =1) + 
+  geom_errorbar(aes(ymin=LCI, ymax=UCI), width=0.2, cex=1,position = pd)+ 
+  coord_flip(ylim=c(0,3)) + 
+  geom_point(shape = 15, size = 2,position = pd) + 
+  ggtitle("")+ 
+  xlab("Household Structure") + 
+  ylab("OR (95% CI)") + 
+  scale_y_continuous(breaks = c(0,.5,1,1.5,2,3))+ 
+  theme_pubr(base_size = 25,legend = "right")
+
+print("all subset seronaive")
+print(A)
+
+# males females
+A1$analysis <- "Univariate"
+A1_re$analysis <- "Univariate w/ r.e.s"
+A1v1 <- A1
+A1v1 <- A1v1[A1v1$DV %in% varlist2,]
+A1_re_v1 <- A1_re
+A1_re_v1 <- A1_re_v1[A1_re_v1$DV %in% varlist2,]
+A2males_females$analysis <- "Multivariate w/ r.e.s"
+A <- rbind(A1v1,A2males_females)
+A <- rbind(A1_re_v1,A)
+A$analysis <- factor(A$analysis, levels=c('Univariate', 'Univariate w/ r.e.s', 'Multivariate w/ r.e.s'))
+
+pd = position_dodge(.5)
+p1 <- ggplot(data=A[A$analysis == 'Multivariate w/ r.e.s',], aes(x=IV, y=ES, ymin=LCI, ymax=UCI,group=analysis)) +
+  geom_pointrange(position = pd)+ 
+  geom_hline(yintercept=1, lty=2, size =1) + 
+  geom_errorbar(aes(ymin=LCI, ymax=UCI), width=0.2, cex=1,position = pd)+ 
+  coord_flip(ylim=c(0,3)) + 
+  geom_point(shape = 15, size = 2,position = pd) + 
+  ggtitle("")+ 
+  xlab("Household Structure") + 
+  ylab("OR (95% CI)") + 
+  scale_y_continuous(breaks = c(0,.5,1,1.5,2,2.5,3))+ 
+  theme_pubr(base_size = 25,legend = "right")
+
+print("males and females subset seronaive")
+print(A)
+
+
+####### figure ED4cd Household HAI and Attack Rate Analysis (>=4x increase) #####
+#  run with full data
+model1 <- glmmTMB((max_div>=4) ~ houseFUprePosPropCat_4x,
+                  data=df,
+                  family = binomial(link="logit"))
+
+model1_re <- glmmTMB((max_div>=4) ~ houseFUprePosPropCat_4x + (1|houseAnon),
+                     data=df,
+                     family = binomial(link="logit"))
+
+model1_mult <- glmmTMB((max_div>=4) ~ houseFUprePosPropCat_4x + sampDate_post_month + sampDate_post_year + (1|houseAnon),
+                       data=df,
+                       family = binomial(link="logit"))
+
+model2 <- glmmTMB((max_div>=4) ~ houseNoPreTiterMeanCat,
+                  data=df,
+                  family = binomial(link="logit"))
+
+model2_re <- glmmTMB((max_div>=4) ~ houseNoPreTiterMeanCat + (1|houseAnon),
+                     data=df,
+                     family = binomial(link="logit"))
+
+model2_mult <- glmmTMB((max_div>=4) ~ houseNoPreTiterMeanCat + sampDate_post_month + sampDate_post_year + (1|houseAnon),
+                       data=df,
+                       family = binomial(link="logit"))
+
+# get results
+varlist <- c("houseFUprePosPropCat_4x1", "houseFUprePosPropCat_4x2")
+modelouts1 <- exp(confint(model1,parm = varlist))
+
+modelouts1_re <- exp(confint(model1_re,parm = varlist))
+
+modelouts1_mult <- exp(confint(model1_mult,parm = varlist))
+
+varlist <- c("houseNoPreTiterMeanCat1", "houseNoPreTiterMeanCat2")
+modelouts2 <- exp(confint(model2,parm = varlist))
+
+modelouts2_re <- exp(confint(model2_re,parm = varlist))
+
+modelouts2_mult <- exp(confint(model2_mult,parm = varlist))
+
+DV<-c("houseFUprePosPropCat_4x1", "houseFUprePosPropCat_4x2") # Heading for Facet Wrap
+IV<-as.factor(c("0-0.2",
+                ">0.2")) # Independent variable names
+ES<-as.numeric(modelouts1[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
+LCI<-as.numeric(modelouts1[,1]) # Lower 95% confidence interval
+UCI<-as.numeric(modelouts1[,2]) # Upper 95% confidence interval
+
+A1<-data.frame(DV,IV,ES,LCI,UCI)
+hold<-data.frame("houseFUprePosPropCat_4x0",as.factor("0"),1,NA,NA)
+names(hold)<-c("DV","IV","ES","LCI","UCI")
+A1 <- rbind(A1,hold)
+A1$analysis <- "Univariate"
+
+DV<-c("houseFUprePosPropCat_4x1", "houseFUprePosPropCat_4x2") # Heading for Facet Wrap
+IV<-as.factor(c("0-0.2",
+                ">0.2"))# Independent variable names
+ES<-as.numeric(modelouts1_re[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
+LCI<-as.numeric(modelouts1_re[,1]) # Lower 95% confidence interval
+UCI<-as.numeric(modelouts1_re[,2]) # Upper 95% confidence interval
+
+A1_re<-data.frame(DV,IV,ES,LCI,UCI)
+hold<-data.frame("houseFUprePosPropCat_4x0",as.factor("0"),1,NA,NA)
+names(hold)<-c("DV","IV","ES","LCI","UCI")
+A1_re <- rbind(A1_re,hold)
+A1_re$analysis <- "Univariate w/ r.e.s"
+
+DV<-c("houseFUprePosPropCat_4x1", "houseFUprePosPropCat_4x2") # Heading for Facet Wrap
+IV<-as.factor(c("0-0.2",
+                ">0.2"))# Independent variable names
+ES<-as.numeric(modelouts1_mult[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
+LCI<-as.numeric(modelouts1_mult[,1]) # Lower 95% confidence interval
+UCI<-as.numeric(modelouts1_mult[,2]) # Upper 95% confidence interval
+
+A1_multi<-data.frame(DV,IV,ES,LCI,UCI)
+hold<-data.frame("houseFUprePosPropCat_4x0",as.factor("0"),1,NA,NA)
+names(hold)<-c("DV","IV","ES","LCI","UCI")
+A1_multi <- rbind(A1_multi,hold)
+A1_multi$analysis <- "Multivariate w/ r.e.s"
+
+
+A1 <- rbind(A1_re,A1)
+A1 <- rbind(A1,A1_multi)
+A1$analysis <- factor(A1$analysis, levels=c('Univariate', 'Univariate w/ r.e.s', 'Multivariate w/ r.e.s'))
+A1$IV <- factor(A1$IV, levels=c("0","0-0.2",">0.2"))
+
+DV<-c("houseNoPreTiterMeanCat1", "houseNoPreTiterMeanCat2") # Heading for Facet Wrap
+IV<-as.factor(c("40-66",
+                ">66")) # Independent variable names
+ES<-as.numeric(modelouts2[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
+LCI<-as.numeric(modelouts2[,1]) # Lower 95% confidence interval
+UCI<-as.numeric(modelouts2[,2]) # Upper 95% confidence interval
+PCHval <- rep(16,length(IV))
+
+A2<-data.frame(DV,IV,ES,LCI,UCI,PCHval)
+hold<-data.frame("houseNoPreTiterMeanCat0",as.factor("<40"),1,NA,NA,21)
+names(hold)<-c("DV","IV","ES","LCI","UCI","PCHval")
+A2 <- rbind(A2,hold)
+A2$analysis <- "Univariate"
+
+DV<-c("houseNoPreTiterMeanCat1", "houseNoPreTiterMeanCat2") # Heading for Facet Wrap
+IV<-as.factor(c("40-66",
+                ">66")) # Independent variable names
+ES<-as.numeric(modelouts2_re[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
+LCI<-as.numeric(modelouts2_re[,1]) # Lower 95% confidence interval
+UCI<-as.numeric(modelouts2_re[,2]) # Upper 95% confidence interval
+PCHval <- rep(16,length(IV))
+
+A2_re<-data.frame(DV,IV,ES,LCI,UCI,PCHval)
+hold<-data.frame("houseNoPreTiterMeanCat0",as.factor("<40"),1,NA,NA,21)
+names(hold)<-c("DV","IV","ES","LCI","UCI","PCHval")
+A2_re <- rbind(A2_re,hold)
+A2_re$analysis <- "Univariate w/ r.e.s"
+
+
+DV<-c("houseNoPreTiterMeanCat1", "houseNoPreTiterMeanCat2") # Heading for Facet Wrap
+IV<-as.factor(c("40-66",
+                ">66")) # Independent variable names
+ES<-as.numeric(modelouts2_mult[,3]) # b Estimate (could be standardized estimate, Odds Ratio, Incident Rate Ratio, etc.)
+LCI<-as.numeric(modelouts2_mult[,1]) # Lower 95% confidence interval
+UCI<-as.numeric(modelouts2_mult[,2]) # Upper 95% confidence interval
+PCHval <- rep(16,length(IV))
+
+A2_multi<-data.frame(DV,IV,ES,LCI,UCI,PCHval)
+hold<-data.frame("houseNoPreTiterMeanCat0",as.factor("<40"),1,NA,NA,21)
+names(hold)<-c("DV","IV","ES","LCI","UCI","PCHval")
+A2_multi <- rbind(A2_multi,hold)
+A2_multi$analysis <- "Multivariate w/ r.e.s"
+
+A2 <- rbind(A2_re,A2)
+A2 <- rbind(A2,A2_multi)
+A2$analysis <- factor(A2$analysis, levels=c('Univariate', 'Univariate w/ r.e.s', 'Multivariate w/ r.e.s'))
+A2$IV <- factor(A2$IV, levels=c("<40","40-66",">66"))
+
+pd = position_dodge(.5)
+p3 <- ggplot(data=A1[A1$analysis == 'Multivariate w/ r.e.s',], aes(x=IV, y=ES, ymin=LCI, ymax=UCI,group=analysis))+
+  geom_pointrange(position = pd)+ 
+  geom_hline(yintercept=1, lty=2, size =1) + 
+  geom_errorbar(aes(ymin=LCI, ymax=UCI), width=0.2, cex=1,position = pd)+ 
+  coord_flip(ylim=c(0,2)) + 
+  geom_point(shape = 15, size = 2,position = pd) + 
+  ggtitle("")+ 
+  xlab("AR of household (previous year)") + 
+  ylab("OR (95% CI)") + 
+  scale_y_continuous(breaks = c(0,.5,1,1.5,2))+ 
+  theme_pubr(base_size = 25,legend = "right")
+
+print("HH AR seronaive sensitivity")
+print(A1)
+
+
+pd = position_dodge(.5)
+p4 <- ggplot(data=A2[A2$analysis == 'Multivariate w/ r.e.s',], aes(x=IV, y=ES, ymin=LCI, ymax=UCI,group=analysis))+
+  geom_pointrange(position = pd)+ 
+  geom_hline(yintercept=1, lty=2, size =1) + 
+  geom_errorbar(aes(ymin=LCI, ymax=UCI), width=0.2, cex=1,position = pd)+ 
+  coord_flip(ylim=c(0,2)) + 
+  geom_point(shape = 15, size = 2,position = pd) + 
+  ggtitle("")+ 
+  xlab("Avg. household HAI titers (pre)") + 
+  ylab("OR (95% CI)") + 
+  scale_y_continuous(breaks = c(0,.5,1,1.5,2))+ 
+  theme_pubr(base_size = 25,legend = "right")
+
+print("HH HI seronaive sensitivity")
+print(A2)
+
+print( p2 + p1 + p3 + p4 + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'a'))
+ggsave(filename="ED4.png",path = figFolder,
+       width = 20, height = 14, device='png', dpi=700)
+
+
+
+
+####### figure ED5ab Household Composition Analysis sensitivity analyses (80% of household sampled) ######
 varlist <- c("houseNumMalesNewbornupdate","houseNumFemaleNewbornupdate","houseNumMalesLT5update",
              "houseNumFemalesLT5update","houseNumMales5to18update","houseNumFemales5to18update",
              "houseNumMalesGE18update","houseNumFemalesGE18update","houseNumNewbornupdate",
@@ -1599,7 +2073,7 @@ print("males and females subset 80pc")
 print(A)
 
 
-####### figure S8cd Household HAI and Attack Rate Analysis (80% of household sampled)  #####
+####### figure ED5cd Household HAI and Attack Rate Analysis (80% of household sampled)  #####
 #  run with full data
 model1 <- glmmTMB(prediction_round ~ houseFUprePosPropCat,
                   data=df[((df$numSamplesPost)/(df$houseNumSizeupdate+1))>=.8,], 
@@ -1840,13 +2314,13 @@ p4 <- ggplot(data=A2[A2$analysis == 'Multivariate w/ r.e.s',], aes(x=IV, y=ES, y
 print("HH HI 80% sensitivity")
 print(A2)
 
-print(p2 + p1 + p3 + p4 + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A'))
-ggsave(filename="figure_S8.png",path = figFolder,
+print(p2 + p1 + p3 + p4 + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'a'))
+ggsave(filename="ED5.png",path = figFolder,
        width = 20, height = 14, device='png', dpi=700)
 
 
 
-####### figure S9ab Household Composition Analysis sensitivity analyses (seronaive only) #####
+####### figure ED6ab Household Composition Analysis sensitivity analyses (seronaive only) #####
 #create variable lists for analyses
 varlist <- c("houseNumMalesNewbornupdate","houseNumFemaleNewbornupdate","houseNumMalesLT5update",
              "houseNumFemalesLT5update","houseNumMales5to18update","houseNumFemales5to18update",
@@ -2178,7 +2652,7 @@ print("males and females subset seronaive")
 print(A)
 
 
-####### figure S9cd Household HAI and Attack Rate Analysis (seronaive only) #####
+####### figure ED6cd Household HAI and Attack Rate Analysis (seronaive only) #####
 #  run with full data
 model1 <- glmmTMB(prediction_round ~ houseFUprePosPropCat,
                   data=df[df$max_pre < 20,],
@@ -2345,16 +2819,67 @@ p4 <- ggplot(data=A2[A2$analysis == 'Multivariate w/ r.e.s',], aes(x=IV, y=ES, y
 print("HH HI seronaive sensitivity")
 print(A2)
 
-print( p2 + p1 + p3 + p4 + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A'))
-ggsave(filename="figure_S9.png",path = figFolder,
+print( p2 + p1 + p3 + p4 + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'a'))
+ggsave(filename="ED6.png",path = figFolder,
        width = 20, height = 14, device='png', dpi=700)
 
 
 
 
-##### figure S11 plot seroprevalence and HAIs by serotype #####
 
-df2prop_serotype <- function(df,yearVec,ageVec,serobound,serotype){
+####### figure SI fig3 individuals with multiple infections #####
+
+df$pos <- 1:length(df$subjectNoAnon)
+df$cumsumInf <- NA
+for(i in 1:length(unique(df$subjectNoAnon))){
+  hold <- df[df$subjectNoAnon == unique(df$subjectNoAnon)[i],]
+  hold$cumInf <- cumsum(hold$prediction_round[order(hold$followUp)])[match(hold$followUp,hold$followUp[order(hold$followUp)])]
+  df[match(hold$pos,df$pos),]$cumsumInf <- hold$cumInf 
+}
+
+# plot how this varies by age
+p1 <- ggplot(df[(df$prediction_round),],aes(x=ageAtFollow,fill=(as.factor(cumsumInf)))) 
+p1 <- p1 + geom_bar() + scale_x_binned(breaks = seq(5,90,5),limits=c(0,90),name = "Age (years)",
+                                       labels = c("","10","","20","","30","","40","","50","","60","","70","","80","","90")) 
+p1 <- p1 + theme_pubr(base_size = 24,legend = "top")
+p1 <- p1 + labs(fill="Subj. inf. #")
+p1 <- p1 + ylab("Number of intervals")
+p1 <- p1 + scale_fill_viridis_d(labels = c("TRUE" = "Primary", "FALSE" = "Secondary"))
+p1 <- p1 + guides(fill=guide_legend(reverse=TRUE))
+
+# plot how probability varies by age
+quantLocs <- as.vector(quantile((df$ageAtFollow),na.rm=T,probs = c(0,seq(.2, 1, by = 0.1))))
+p2 <- ggplot(df[df$cumsumInf>0,],aes(x=(ageAtFollow),y=as.numeric(cumsumInf>1))) + theme_pubr(base_size = 24,legend = "top")
+p2 <- p2 + geom_smooth(method = "glm", method.args = list(family = "binomial"), formula = y ~ splines::ns(x, 3),col="black")
+p2 <- p2 + xlab("Age (years)") + ylab("P(2nd/3rd infection | infection)")
+p2 <- p2 + stat_summary_bin(geom = "pointrange",breaks = quantLocs,fun.data = "mean_cl_boot")
+
+
+p <- p1 + p2 + plot_annotation(tag_levels = 'a')
+print(p)
+ggsave(filename="figureS3.png",path = figFolder,
+       width = 14, height = 10, device='png', dpi=700)
+
+###### figure SI fig4 dist of hh variables ######
+p1 <- ggplot(df) + geom_histogram(aes(x=2^houseNoPreTiterMean))
+p1 <- p1 + scale_x_continuous(name = "Average household HI titers w/o indiv. (pre)",
+                              trans=pseudo_log_trans(2),breaks = c(10,80,640,5120),
+                              labels = c("<10","80","640","5120"),limits=c(5,5500))
+p1 <- p1 + theme_pubr(base_size = 28)
+p2 <- ggplot(df) + geom_histogram(aes(x=houseFUprePosProp),binwidth = .05)
+p2 <- p2 + xlab("Attack rate of household from previous year")
+p2 <- p2 + theme_pubr(base_size = 28)
+p3 <- ggplot(df) + geom_histogram(aes(x=((df$numSamplesPost)/(df$houseNumSizeupdate+1))),binwidth = .05)
+p3 <- p3 + xlab("Proportion of household sampled")
+p3 <- p3 + theme_pubr(base_size = 28)
+p <- p1 + p2 + p3 + plot_annotation(tag_levels = 'a')
+print(p)
+ggsave(filename="figureS4.png",path = figFolder,
+       width = 30, height = 10, device='png', dpi=700)
+
+###### figure SI fig5 serotype specific ##### 
+## plot seroprevalence curve by serotype
+df2prop_seros <- function(df,yearVec,ageVec,serobound,serotype){
   df <- df[df$sampDate_post_year %in% yearVec,]
   
   p = rep(0, (length(ageVec)-1))
@@ -2379,11 +2904,12 @@ df2prop_serotype <- function(df,yearVec,ageVec,serobound,serotype){
   return(newdf)
 }
 
+
 ageVec <- c(1:30)
-pvec17_d1 <- df2prop_serotype(df,2017,ageVec,20,"d1_post")
-pvec17_d2 <- df2prop_serotype(df,2017,ageVec,20,"d2_post")
-pvec17_d3 <- df2prop_serotype(df,2017,ageVec,20,"d3_post")
-pvec17_d4 <- df2prop_serotype(df,2017,ageVec,20,"d4_post")
+pvec17_d1 <- df2prop_seros(df,2017,ageVec,20,"d1_post")
+pvec17_d2 <- df2prop_seros(df,2017,ageVec,20,"d2_post")
+pvec17_d3 <- df2prop_seros(df,2017,ageVec,20,"d3_post")
+pvec17_d4 <- df2prop_seros(df,2017,ageVec,20,"d4_post")
 
 fit=glm(cbind(pvec17_d1$inf,pvec17_d1$n-pvec17_d1$inf)~offset(log(pvec17_d1$a)),family=binomial(link="cloglog"), data=pvec17_d1)
 phi=exp(coef(summary(fit))[1])
@@ -2406,10 +2932,10 @@ pvec17_d4$fit = 1-exp(-phi*pvec17_d4$a)
 pvec17_d4$foi = exp(fit$coef)
 
 ageVec <- c(1:93) # add so we can plot entire age range
-pvec17_d1 <- df2prop_serotype(df,2017,ageVec,20,"d1_post")
-pvec17_d2 <- df2prop_serotype(df,2017,ageVec,20,"d2_post")
-pvec17_d3 <- df2prop_serotype(df,2017,ageVec,20,"d3_post")
-pvec17_d4 <- df2prop_serotype(df,2017,ageVec,20,"d4_post")
+pvec17_d1 <- df2prop_seros(df,2017,ageVec,20,"d1_post")
+pvec17_d2 <- df2prop_seros(df,2017,ageVec,20,"d2_post")
+pvec17_d3 <- df2prop_seros(df,2017,ageVec,20,"d3_post")
+pvec17_d4 <- df2prop_seros(df,2017,ageVec,20,"d4_post")
 
 fit=glm(cbind(pvec17_d1$inf,pvec17_d1$n-pvec17_d1$inf)~offset(log(pvec17_d1$a)),family=binomial(link="cloglog"), data=pvec17_d1)
 phi=exp(coef(summary(fit))[1])
@@ -2444,12 +2970,12 @@ p1 <- p1 + geom_line(pvec17_d3,mapping=aes(x=a,y=fit,col="DENV-3"),size=1.2)
 p1 <- p1 + geom_line(pvec17_d4,mapping=aes(x=a,y=fit,col="DENV-4"),size=1.2)
 p1 <- p1 + xlab("Age (years)") + ylab("Seroprevalence")
 p1 <- p1 + coord_cartesian(xlim = c(0,93),ylim=c(0,1))
-p1 <- p1 + theme_pubr(base_size = 18,legend="right")
+p1 <- p1 + theme_pubr(base_size = 25,legend="right")
 p1 <- p1 + guides(fill=FALSE,color=guide_legend("Serotype"))
 
 df17 <- df[df$sampDate_post_year %in% c(2017),]
 quantLocs <- as.vector(quantile((df17$ageAtEnr),na.rm=T,probs = seq(0, 1, by = 0.1)))
-p2 <- ggplot() + theme_pubr(base_size = 18,legend = "right")
+p2 <- ggplot() + theme_pubr(base_size = 25,legend = "right")
 p2 <- p2 + geom_smooth(data=df17[df17$ageAtEnr>0,],mapping=aes(y=d1_pre,x=ageAtEnr,col="DENV-1",fill="DENV-1")
                        ,method = "glm", formula = y ~ splines::ns(x, 4))
 p2 <- p2 + geom_smooth(data=df17[df17$ageAtEnr>0,],mapping=aes(y=d2_pre,x=ageAtEnr,col="DENV-2",fill="DENV-2")
@@ -2458,14 +2984,15 @@ p2 <- p2 + geom_smooth(data=df17[df17$ageAtEnr>0,],mapping=aes(y=d3_pre,x=ageAtE
                        ,method = "glm", formula = y ~ splines::ns(x, 4))
 p2 <- p2 + geom_smooth(data=df17[df17$ageAtEnr>0,],mapping=aes(y=d4_pre,x=ageAtEnr,col="DENV-4",fill="DENV-4")
                        ,method = "glm", formula = y ~ splines::ns(x, 4))
-p2 <- p2 + xlab("Age (years)") + ylab("Avg. DENV (HAI)")
+p2 <- p2 + xlab("Age (years)") + ylab("Serotype specific DENV (HAI)")
 p2 <- p2 + scale_y_continuous(trans=pseudo_log_trans(2),breaks = c(10,20,40,80,160),labels = c("<10","20","40","80","160"))
 p2 <- p2 + coord_cartesian(ylim=c(10,180))
-p2 <- p2 + guides(fill=FALSE,color=guide_legend("Serotype"))
+p2 <- p2 + guides(fill=FALSE,color=FALSE)
 
-print((p1 + p2)  + plot_annotation(tag_levels = 'A')) + plot_layout(guides = "collect")
-ggsave(filename="S11.png",path = figFolder, width = 12, height = 6, device='png', dpi=700)
+print((p1 + p2)  + plot_annotation(tag_levels = 'a')) + plot_layout(guides = "collect")
 
+ggsave(filename="figureS5.png",path = figFolder,
+       width = 15, height = 8, device='png', dpi=700)
 
 ####### table S2 Individual, household, and temporal factor analysis #####
 namevals <- character(0)
